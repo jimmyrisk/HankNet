@@ -2,30 +2,36 @@ from torch import nn
 import copy
 
 class NeuralNet(nn.Module):
-    """mini cnn structure
-    input -> (conv2d + relu) x 3 -> flatten -> (dense + relu) x 2 -> output
+    """
+    # 0. (16x32) 1's and 0's corresponding to grass
+    # 1. (16x32) 1's and 0's flower
+    # 2. (16x32) 1's and 0's rock
+    # 3. (16x32) 1's and 0's mower position
+    # 4. (16x32) 1's and 0's impassable
+    # 5. (16x32) 1's and 0's fuel
+    # 6. (16x32) 1's and 0's upcoming fuel
+    # 7. fuel%
+    # 8. %done
+    # 9. momentum (frames since input?)
+    # is there a way to manually give reward based on momentum and grid structure, instead of using built in frames?
     """
 
     def __init__(self, input_dim, output_dim):
         super().__init__()
-        c, h, w = input_dim
 
-        if h != 84:
-            raise ValueError(f"Expecting input height: 84, got: {h}")
-        if w != 84:
-            raise ValueError(f"Expecting input width: 84, got: {w}")
 
-        self.online = nn.Sequential(
-            nn.Conv2d(in_channels=c, out_channels=32, kernel_size=8, stride=4),
+        # playing around with size in neural
+        self.online = self.nn = nn.Sequential(
+            nn.Conv3d(in_channels=4, out_channels=32, kernel_size=(3,3,3), stride=4),
             nn.ReLU(),
-            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=4, stride=2),
+            nn.Conv3d(in_channels=32, out_channels=64, kernel_size=(3,3,1), stride=2),
             nn.ReLU(),
-            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1),
+            nn.Conv3d(in_channels=64, out_channels=64, kernel_size=(1,3,1), stride=1),
             nn.ReLU(),
-            nn.Flatten(),
-            nn.Linear(3136, 512),
+            nn.Flatten(1,4),
+            nn.Linear(64, 16),
             nn.ReLU(),
-            nn.Linear(512, output_dim),
+            nn.Linear(16, 4),
         )
 
         self.target = copy.deepcopy(self.online)
@@ -35,6 +41,9 @@ class NeuralNet(nn.Module):
             p.requires_grad = False
 
     def forward(self, input, model):
+        # TODO: make this less hacky
+        while len(input.shape) < 5:
+            input = input.unsqueeze(dim=0)
         if model == "online":
             return self.online(input)
         elif model == "target":

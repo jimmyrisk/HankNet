@@ -2,15 +2,17 @@ import torch
 import random, numpy as np
 from neural import NeuralNet
 from collections import deque
+from utils import memory_to_tensor
+
 
 class Hank:
     def __init__(self, state_dim, action_dim, save_dir, checkpoint=None):
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.save_dir = save_dir
-        self.memory = deque(maxlen=10000)
-        self.batch_size = 32
-        self.gamma = 0.9
+        self.memory = deque(maxlen=50000)
+        self.batch_size = 64
+        self.gamma = 0.95
 
         self.loss_fn = torch.nn.SmoothL1Loss()
         self.burnin = 1e4  # min. experiences before training
@@ -53,14 +55,20 @@ class Hank:
 
         # EXPLOIT
         else:
-            state = state.__array__()
+
+            frame_0 = memory_to_tensor(state[0])
+            frame_1 = memory_to_tensor(state[1])
+            frame_2 = memory_to_tensor(state[2])
+            frame_3 = memory_to_tensor(state[3])
+
+            state = torch.stack((frame_0, frame_1, frame_2, frame_3))
+
             if self.use_cuda:
                 state = torch.tensor(state).cuda()
-            else:
-                state = torch.tensor(state)
-            state = state.unsqueeze(0)
+            #state = state.unsqueeze(0)
             action_values = self.net(state, model="online")
-            action_idx = torch.argmax(action_values, axis=1).item()
+            #action_idx = torch.argmax(action_values, axis=1).item()
+            action_idx = torch.argmax(action_values).item()
 
         # decrease exploration_rate
         self.exploration_rate *= self.exploration_rate_decay
@@ -81,8 +89,22 @@ class Hank:
         reward (float),
         done(bool))
         """
-        state = state.__array__()
-        next_state = next_state.__array__()
+
+        # state is 4x10240
+        frame_0 = memory_to_tensor(state[0])
+        frame_1 = memory_to_tensor(state[1])
+        frame_2 = memory_to_tensor(state[2])
+        frame_3 = memory_to_tensor(state[3])
+
+        state = torch.stack((frame_0,frame_1,frame_2,frame_3))
+
+        frame_0 = memory_to_tensor(next_state[0])
+        frame_1 = memory_to_tensor(next_state[1])
+        frame_2 = memory_to_tensor(next_state[2])
+        frame_3 = memory_to_tensor(next_state[3])
+
+        next_state = torch.stack((frame_0,frame_1,frame_2,frame_3))
+
 
         if self.use_cuda:
             state = torch.tensor(state).cuda()

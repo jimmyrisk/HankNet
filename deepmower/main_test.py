@@ -11,6 +11,9 @@ from hank import Hank
 
 from retro import RetroEnv
 
+from utils import memory_to_tensor, print_grid, cardinal_input
+
+
 LAWNMOWER_LOCATION = Path().parent.absolute()
 retro.data.Integrations.add_custom_path(LAWNMOWER_LOCATION)
 
@@ -24,13 +27,13 @@ print(f"Using CUDA: {use_cuda}\n")
 
 
 try:
-    save_states = [f'lawn{x}.state' for x in range(10, 0, -1)]
+    save_states = [f'lawn{x}.state' for x in range(10, 8, -1)]
     # env is a RetroEnv object https://github.com/openai/retro/blob/98fe0d328e1568836a46e5fce55a607f47a0c332/retro/retro_env.py
 
     env = RetroEnv(game='lawnmower',
                    state=save_states.pop(),  # pops off lawn1.state
-                   inttype=retro.data.Integrations.ALL)#,
-                   #obs_type=retro.enums.Observations.RAM)
+                   inttype=retro.data.Integrations.ALL,
+                   obs_type=retro.enums.Observations.RAM)
 except FileNotFoundError:
     print(f"ERROR: lawnmower integration directory not found in the following location: {LAWNMOWER_LOCATION}")
     sys.exit()
@@ -45,17 +48,17 @@ action_space = [
 ]
 
 env = Discretizer(env, combos=action_space)
-env = ResizeObservation(env, shape=84)
+#env = ResizeObservation(env, shape=84)
 #env = GrayScaleObservation(env, keep_dim=False)
-env = TransformObservation(env, f=lambda x: x / 255.)
+# env = TransformObservation(env, f=lambda x: x / 255.)
 env = FrameStack(env, num_stack=4)
 
 """ CHECKPOINT SAVING """
 
 save_dir = Path("../checkpoints") / datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
 save_dir.mkdir(parents=True)
-#checkpoint = Path('..\\checkpoints\\2021-11-27T18-33-07\\Hank_net_18.chkpt')
-hank = Hank(state_dim=(4, 84, 84), action_dim=env.action_space.n, save_dir=save_dir)#, checkpoint=checkpoint)
+checkpoint = Path('../checkpoints/2022-08-11T19-45-43/Hank_net_1.chkpt')
+hank = Hank(state_dim=(4, 84, 84), action_dim=env.action_space.n, save_dir=save_dir, checkpoint=checkpoint)
 
 ### Set these if you want it to begin learning anew with the current nn
 #hank.exploration_rate_min = 0.1
@@ -70,8 +73,8 @@ lawn1_clear_ep = []
 
 """ BEGIN TRAINING """
 
-debug = True
-episodes = 100000
+debug = False
+episodes = 1000000
 best_propane_points = 0  # aka best_cumulative_reward
 
 for e in range(episodes):
@@ -138,12 +141,14 @@ for e in range(episodes):
             delay_act = True
 
         # Run agent on the state if action is possible
-        if ((act and not act_5fr) or delay_act) and game_start and frames_until_act < 0:
+        if ((act and not act_5fr) or delay_act) and game_start:
             # Hank is about to act.  Learn from prior actions
 
             hank.cache(action_state, next_state, prev_action, reward, done)
 
             #input(f"Learning done based on next_state = current render.  Reward = {reward}  Press any key to continue.")
+
+
             #print(f"action = {prev_action}, reward = {reward}")
 
             # Learn
@@ -174,12 +179,22 @@ for e in range(episodes):
             #action = int(input())
 
             ### DEBUGGING STUFF
-            #print(frame_since_act)
-            #action = int(input("Mow which direction?"))
-            #input("Action made based on this state. Press any key to continue")
+            if debug is True:
+                print(frame_since_act)
+
+                ram = env.get_ram()
+                ram_tensor = memory_to_tensor(ram)
+                print_grid(ram_tensor)
+
+                dir = input("Mow which direction?")
+
+                action = int(int(cardinal_input(dir)))
+                #input("Action made based on this state. Press any key to continue")
+                #print(f"next_action={action}")
 
 
-            #print(f"next_action={action}")
+
+
 
             action_state = next_state  # current state when action is performed
             frame_since_act = 0
@@ -189,11 +204,22 @@ for e in range(episodes):
 
 
 
+        if debug is True:
+            print(f"player x: {info['PLAYER_X']}")
+            print(f"act? {act}")
+            print(f"act 5 fr? {act_5fr}")
+            print(f"frames until act: {frames_until_act}")
+
         # Agent performs action
         next_state, _, _, info = env.step(action)
 
+        ram = env.get_ram()
+        info["PLAYER_X"] = ram[0x00EA]
+        info["PLAYER_Y"] = ram[0x00E8] - 2
+
         # Render frame
         env.render()
+
 
 
 
@@ -228,13 +254,13 @@ for e in range(episodes):
             else:
                 turns = 0
             if info["GRASS_LEFT"] < prev_info["GRASS_LEFT"]:
-                #reward += 10
-                pass
+                reward += 10
+                #pass
                 #print("Reward Updated")
 
             # Penalize for OOF'ing
             if frame_since_OOF > 3:
-                reward -= 3000
+                reward -= 1000
 
         # Penalizes for turning too much
         #reward -= (turns - 1) * turns / 1000
