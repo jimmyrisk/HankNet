@@ -11,7 +11,7 @@ from hank import Hank
 
 from retro import RetroEnv
 
-from utils import memory_to_tensor, print_grid, cardinal_input
+from utils import memory_to_tensor, print_grid, cardinal_input, tracker, EpisodeLogger
 
 
 LAWNMOWER_LOCATION = Path().parent.absolute()
@@ -58,7 +58,7 @@ env = FrameStack(env, num_stack=4)
 save_dir = Path("../checkpoints") / datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
 save_dir.mkdir(parents=True)
 checkpoint = Path('../checkpoints/2022-08-11T19-45-43/Hank_net_1.chkpt')
-hank = Hank(state_dim=(4, 84, 84), action_dim=env.action_space.n, save_dir=save_dir, checkpoint=checkpoint)
+hank = Hank(state_dim=(4, 84, 84), action_dim=env.action_space.n, save_dir=save_dir, env = env, checkpoint=checkpoint)
 
 ### Set these if you want it to begin learning anew with the current nn
 #hank.exploration_rate_min = 0.1
@@ -68,7 +68,7 @@ hank.exploration_rate = 0.1
 
 """ LOGGING """
 
-logger = MetricLogger(save_dir)
+logger = EpisodeLogger(save_dir)
 lawn1_clear_ep = []
 
 """ BEGIN TRAINING """
@@ -77,251 +77,74 @@ debug = False
 episodes = 1000000
 best_propane_points = 0  # aka best_cumulative_reward
 
+
+
 for e in range(episodes):
-
     # State reset between runs
-    init_state = env.reset()
+    # need to fill queue.  pick top left, top right, bottom left, or bottom right
+    hist = tracker(env)
 
-    # For randomly selecting save states to work with
-    # save_state_no = np.random.randint(1,4)
-    # save_state_file = f'lawn{save_state_no}.state'
-    # env.load_state(save_state_file, inttype=retro.data.Integrations.ALL)
+    # init tau
 
-    # Variables to keep track of for reward function
-    frame_count = 0
-    frame_since_act = 0
-    frame_since_OOF = 0
-    fuel_pickups = 0
-    turns = 0
-    propane_points = 0  # aka cumulative_reward
+    hist.reset()
+    env.render()
 
-    reward = 0
-
-    act = False
-    learn = False
-    delay_act = False
-    game_start = False
-    # new_best = False # not used
-
-    # initial action
-    action = hank.act(init_state)
-    prev_action = action
-    action_state = init_state  # current state when action is performed
-    next_state, _, _, info = env.step(action)
     done = False
-    prev_info = info
-    frames_until_act = 3
+    frame_count = 0
 
-    # Episode training
-    while True:
-
-        """ FRAME SENSITIVE CONDITIONS """
-
-        frame_count += 1
-        frame_since_act += 1
-        frames_until_act -= 1
-        # cur_fuel_pickup = 0
-        fuel_rew = 0
+    while done is False:
+        # TODO:
+        # - set up numeric things to keep track of in state
+        # - finish EpisodeLogger along with reward
+        # - try to generate random trajectories?
+        # - set up both NN's
 
 
+        # first action is always EAST
 
-        if not game_start and info["FUEL_TIME"] < 254: # FUEL_TIME changes randomly
-            game_start = True
-            prev_action = action
-            action = hank.act(next_state)
-            act = False
-
+        # wait for state change
+        #  - save until x, y changes.  save current states
+        # record s_{t+1}, s_t, a_t, r_t
 
 
+        # get action from M_phi(s_t, a_t)
+        # - look ahead horizon H=10
+        # - find path that maximizes reward
 
-        # equals True if action blocked, False if possible
-        act_5fr = prev_info["FRAME_COUNTER_5"] == 3
+        action = hank.act(init_state)
 
-        if act and act_5fr:
-            delay_act = True
+        # rewind 2f
+        # push action.  All done inside logger.
+        # Also checks if done.
 
-        # Run agent on the state if action is possible
-        if ((act and not act_5fr) or delay_act) and game_start:
-            # Hank is about to act.  Learn from prior actions
-
-            hank.cache(action_state, next_state, prev_action, reward, done)
-
-            #input(f"Learning done based on next_state = current render.  Reward = {reward}  Press any key to continue.")
-
-
-            #print(f"action = {prev_action}, reward = {reward}")
-
-            # Learn
-            q, loss = hank.learn()
-            propane_points += reward
-
-            ### UNCOMMENT IF YOU WANT TO SEE INPUT BY INPUT WHAT'S GOING ON
-            #print(f"prev_action={prev_action}, reward={reward}")
-            #input()
-
-            # Logging
-            logger.log_step(reward, loss, q)
-
-            reward = 0
-
-            # Perform new action
-            prev_action = action
-
-
-            ### UNCOMMENT IF YOU WANT TO SEE INPUT BY INPUT WHAT'S GOING ON
-
-            action = hank.act(next_state)
-
-            #print(f"prev_action={action}, reward={reward}")
-
-            #print(info)
-
-            #action = int(input())
-
-            ### DEBUGGING STUFF
-            if debug is True:
-                print(frame_since_act)
-
-                ram = env.get_ram()
-                ram_tensor = memory_to_tensor(ram)
-                print_grid(ram_tensor)
-
-                dir = input("Mow which direction?")
-
-                action = int(int(cardinal_input(dir)))
-                #input("Action made based on this state. Press any key to continue")
-                #print(f"next_action={action}")
+        done = logger.step(action)
 
 
 
+        # wait for state change
+        #  - save until x, y changes.  save current states
+        # record s_{t+1}, s_t, a_t, r_t
 
-
-            action_state = next_state  # current state when action is performed
-            frame_since_act = 0
-
-            act = False  # if acted, then acting should not occur on next frame
-            delay_act = False
-
+        # check if done
 
 
         if debug is True:
-            print(f"player x: {info['PLAYER_X']}")
-            print(f"act? {act}")
-            print(f"act 5 fr? {act_5fr}")
-            print(f"frames until act: {frames_until_act}")
+            #print(frame_since_act)
 
-        # Agent performs action
-        next_state, _, _, info = env.step(action)
+            ram = env.get_ram()
+            ram_tensor = memory_to_tensor(ram)
+            print_grid(ram_tensor)
 
-        ram = env.get_ram()
-        info["PLAYER_X"] = ram[0x00EA]
-        info["PLAYER_Y"] = ram[0x00E8] - 2
+            dir = input("Mow which direction?")
 
-        # Render frame
-        env.render()
+            action = int(int(cardinal_input(dir)))
+            #input("Action made based on this state. Press any key to continue")
+            #print(f"next_action={action}")
 
 
 
 
 
-        # by default, no action on next possible frame
-        if (prev_info["PLAYER_X"] != info["PLAYER_X"] or 
-            prev_info["PLAYER_Y"] != info["PLAYER_Y"] or 
-                (frame_since_act > 6 and act == False)
-        ):
-            act = True
-            frames_until_act = 3
-
-        # Hacky way to handle OOF'ing
-        if info["FUEL"] == 0:
-            frame_since_OOF += 1
-
-
-        """ REWARD FUNCTION INFORMATION """
-
-        ### TODO: clean up reward section
-
-        if prev_info is not None:
-            if info["FUEL"] > prev_info["FUEL"]:
-                fuel_pickups += 1
-                # cur_fuel_pickup = 1
-                #fuel_rew = 1 * 100 * (1 - 1 / (1 + np.exp(-frame_count / 600)))
-                fuel_rew = 2000
-                frame_since_OOF = 0
-                #print(f"Frame: {frame_count}, reward: {fuel_rew}")
-            if info["DIRECTION"] != prev_info["DIRECTION"]:
-                turns += 1
-            else:
-                turns = 0
-            if info["GRASS_LEFT"] < prev_info["GRASS_LEFT"]:
-                reward += 10
-                #pass
-                #print("Reward Updated")
-
-            # Penalize for OOF'ing
-            if frame_since_OOF > 3:
-                reward -= 1000
-
-        # Penalizes for turning too much
-        #reward -= (turns - 1) * turns / 1000
-
-        # reward for fuel pickup
-        reward += fuel_rew
-
-        # Penalizes for taking too long
-        #reward -= (frame_since_act + 1) / 100
-
-        """ STATE UPDATES """
-
-
-
-        # Update state
-        # state = next_state  # irrelevant now?
-
-        # Store previous info
-        prev_info = info
-
-
-
-        if debug is True:
-            if e > 0:
-                pass
-                #print(f"Reward = {reward}")
-                #print(f"Turns = {turns}")
-                #print("~~~current")
-                #print(info)
-                #print("~~~previous")
-                #print(prev_info)
-                #print("~~~")
-                #print("~~~")
-
-        """ DONE CONDITIONS """
-
-
-
-        # Check if OOF
-        if frame_since_OOF > 3 or info["GRASS_LEFT"] < 1:
-            done = True
-            if info["GRASS_LEFT"] < 1:
-                reward += 10000  # maybe remove this?
-
-            # Learn from final actions
-            hank.cache(action_state, next_state, prev_action, reward, done)
-
-            # Learn
-            q, loss = hank.learn()
-            propane_points += reward
-
-            # Logging
-            logger.log_step(reward, loss, q)
-
-            if propane_points < best_propane_points:
-                print(f"Run {e} - Propane Points = {round(propane_points,1)}  ||  Top Propane Points = {round(best_propane_points,1)}")
-            elif propane_points >= best_propane_points:
-                best_propane_points = propane_points
-                # new_best = True # not used
-                print(f"Run {e} ~~~ NEW BEST!  Good job, Hank!  New Top Propane Points = {round(best_propane_points,1)}")
-            break
 
     logger.log_episode()
 

@@ -1,4 +1,8 @@
 import torch
+from collections import deque
+import numpy as np
+from copy import deepcopy
+import matplotlib.pyplot as plt
 
 # 0. (16x32) 1's and 0's corresponding to grass
 # 1. (16x32) 1's and 0's flower
@@ -118,9 +122,16 @@ def memory_to_tensor(memory):
 
     return state
 
+def plot_learning_curve(x, scores, figure_file):
+    running_avg = np.zeros(len(scores))
+    for i in range(len(running_avg)):
+        running_avg[i] = np.mean(scores[max(0, i-100):(i+1)])
+    plt.plot(x, running_avg)
+    plt.title('Running average of previous 100 scores')
+    plt.savefig(figure_file)
 
 def cardinal_input(str):
-    while str != "w" and str != "e" and str != "s" and str != "n":
+    while str != "w" and str != "e" and str != "s" and str != "n" and str != "mpc":
         print("error.  input" + str + "not in one of 'w', 'e', 's', 'n'.\n")
         str = input("Mow which direction?")
     if str == "w":
@@ -131,6 +142,8 @@ def cardinal_input(str):
         return 2
     elif str == "n":
         return 3
+    elif str == "mpc":
+        return "mpc"
 
 
 # transform_observation wrapper
@@ -157,3 +170,211 @@ def cardinal_input(str):
 # 13: mowed flower
 # 14: rock
 # 2E-2F: fuel
+
+class tracker:
+    def __init__(self, env):
+        self.env = env
+        self.momentum = torch.tensor([0.0])
+
+    def reset(self):
+        # For dynamics model
+        self.action_hist = deque(maxlen=4)
+        self.state_hist = deque(maxlen=4)
+        self.shift_hist = deque(maxlen=3)
+        self.coord_hist = deque(maxlen=4)
+
+        self.env.reset()
+        self.init_ram = self.env.get_ram()
+        self.init_tensor = memory_to_tensor(self.init_ram)
+        self.init_info = self.env.data.lookup_all()
+        tensor = memory_to_tensor(self.env.get_ram())
+        self.coord_init = (tensor[:,:,3] == 1.0).nonzero()[0]
+
+        # For dynamics model -- this doesn't actually start the mower at a different spot.
+        pos = np.random.randint(3)
+        if pos == 0:
+            self.init_top()
+        elif pos == 1:
+            self.init_bot()
+        else:
+            self.init_right()
+
+    def init_top(self):
+        tensor = self.init_tensor
+        tensor[self.coord_init[0], self.coord_init[1], 3] = 0.0
+
+        coord = self.coord_init
+        coord[0] = coord[0] - 1
+        self.coord_hist.append(coord)
+
+        tensor[coord[0], coord[1], 3] = 1.0
+        self.state_hist.append(tensor)
+        self.move_down_init()
+        self.move_up_init()
+        self.move_down_init()
+
+    def init_bot(self):
+        tensor = self.init_tensor
+        tensor[self.coord_init[0], self.coord_init[1], 3] = 0.0
+
+        coord = self.coord_init
+        coord[0] = coord[0] + 1
+        self.coord_hist.append(coord)
+
+        tensor[coord[0], coord[1], 3] = 1.0
+        self.state_hist.append(tensor)
+        self.move_up_init()
+        self.move_down_init()
+        self.move_up_init()
+
+
+    def init_right(self):
+        tensor = self.init_tensor
+        tensor[self.coord_init[0], self.coord_init[1], 3] = 0.0
+
+        coord = self.coord_init
+        coord[1] = coord[1] + 1
+        self.coord_hist.append(coord)
+
+        tensor[coord[0], coord[1], 3] = 1.0
+        self.state_hist.append(tensor)
+        self.move_left_init()
+        self.move_right_init()
+        self.move_left_init()
+
+    # 0: left
+    # 1: right
+    # 2: down
+    # 3: up
+    def move_left_init(self):
+        # move left
+        coord_shift = torch.tensor([0, -1])
+
+        # old info
+        coord = self.coord_hist[-1]
+        tensor = self.state_hist[-1]
+        tensor[coord[0], coord[1], 3] = 0.0
+
+        # update old info
+        coord = coord + coord_shift
+        tensor[coord[0], coord[1], 3] = 1.0
+
+        # append
+        self.state_hist.append(tensor)
+        self.coord_hist.append(coord)
+        self.action_hist.append(torch.tensor([1, 0, 0, 0]))
+
+        shift = self.state_hist[-1] - self.state_hist[-2]
+        self.shift_hist.append(shift)
+
+    def move_right_init(self):
+        # move right
+        coord_shift = torch.tensor([0, 1])
+
+        # old info
+        coord = self.coord_hist[-1]
+        tensor = self.state_hist[-1]
+        tensor[coord[0], coord[1], 3] = 0.0
+
+        # update old info
+        coord = coord + coord_shift
+        tensor[coord[0], coord[1], 3] = 1.0
+
+        # append
+        self.state_hist.append(tensor)
+        self.coord_hist.append(coord)
+        self.action_hist.append(torch.tensor([0, 1, 0, 0]))
+
+        shift = self.state_hist[-1] - self.state_hist[-2]
+        self.shift_hist.append(shift)
+
+    def move_down_init(self):
+        # move down
+        coord_shift = torch.tensor([1, 0])
+
+        # old info
+        coord = self.coord_hist[-1]
+        tensor = self.state_hist[-1]
+        tensor[coord[0],coord[1],3] = 0.0
+
+        # update old info
+        coord = coord + coord_shift
+        tensor[coord[0], coord[1], 3] = 1.0
+
+        # append
+        self.state_hist.append(tensor)
+        self.coord_hist.append(coord)
+        self.action_hist.append(torch.tensor([0,0,1,0]))
+
+        shift = self.state_hist[-1] - self.state_hist[-2]
+        self.shift_hist.append(shift)
+
+    def move_up_init(self):
+        # move up
+        coord_shift = torch.tensor([-1, 0])
+
+        # old info
+        coord = self.coord_hist[-1]
+        tensor = self.state_hist[-1]
+        tensor[coord[0], coord[1], 3] = 0.0
+
+        # update old info
+        coord = coord + coord_shift
+        tensor[coord[0], coord[1], 3] = 1.0
+
+        # append
+        self.state_hist.append(tensor)
+        self.coord_hist.append(coord)
+        self.action_hist.append(torch.tensor([0, 0, 0, 1]))
+
+        shift = self.state_hist[-1] - self.state_hist[-2]
+        self.shift_hist.append(shift)
+
+    def step(self, action):
+        # env.step() until x,y change
+        # update action_hist
+        self.action_hist.append(action)
+
+        # update momentum
+        if self.action_hist[-1] == self.action_hist[-2]:
+            self.momentum = self.momentum + 1.0
+        else:
+            self.momentum = torch.tensor([0.0])
+
+        # update state_hist
+
+
+        # update shift_hist
+        shift = self.state_hist[-1] - self.state_hist[-2]
+        self.shift_hist.append(shift)
+
+
+
+
+
+class EpisodeLogger:
+    def __init__(self, save_dir, tracker):
+        self.save_dir = save_dir
+        self.tracker = tracker
+
+        # for dynamics model
+        self.actions_hist = []
+        self.shifts_hist = []
+        self.state_hist = []
+
+    def update(self):
+        self.actions_hist.append(deepcopy(tracker.action_hist))
+        self.shifts_hist.append(deepcopy(tracker.shift_hist))
+        self.state_hist.append(deepcopy(tracker.state_hist[-1]))
+
+    def step(self, action):
+        self.tracker.step(action)
+        self.update()
+
+        done = False
+        return done
+
+    def log_episode(self):
+        pass
+
+

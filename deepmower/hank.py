@@ -6,19 +6,18 @@ from utils import memory_to_tensor
 
 
 class Hank:
-    def __init__(self, state_dim, action_dim, save_dir, checkpoint=None):
+    def __init__(self, state_dim, action_dim, save_dir, env, checkpoint=None):
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.save_dir = save_dir
+        self.env = env
         self.memory = deque(maxlen=50000)
         self.batch_size = 64
         self.gamma = 0.95
-
         self.loss_fn = torch.nn.SmoothL1Loss()
         self.burnin = 1e4  # min. experiences before training
         self.learn_every = 3  # no. of experiences between updates to Q_online
         self.sync_every = 1e4  # no. of experiences between Q_target & Q_online sync
-
         self.use_cuda = torch.cuda.is_available()
 
         # Hank's DNN to predict the most optimal action - we implement this in the Learn section
