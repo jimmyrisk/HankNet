@@ -108,6 +108,12 @@ class test_game:
         self.total_grass = self.state[:, :, 0].sum()
         self.mowed = torch.tensor([0])
         self.perc_done = np.round(self.mowed.item() / self.total_grass.item()*100,2)
+        self.east = self.dir == 1
+        self.west = self.dir == 0
+        self.north = self.dir == 4
+        self.south = self.dir == 3
+        self.state_numericals = torch.tensor([self.frames/1000, self.fuel/100, self.momentum/4, self.perc_done/100,
+                                             self.east, self.west, self.north, self.south, self.mowed/100])
         self.actions = []
         self.states = []
         self.numerical_states = []
@@ -212,9 +218,16 @@ class test_game:
         self.player_coord = new_coord
 
         info = None
+        self.east = self.dir == 1
+        self.west = self.dir == 0
+        self.north = self.dir == 4
+        self.south = self.dir == 3
+        self.state_numericals = torch.tensor(
+            [self.frames / 1000, self.fuel / 100, self.momentum / 4, self.perc_done / 100,
+             self.east, self.west, self.north, self.south, self.mowed / 100])
 
         #return self.save_state(), reward, self.check_done(), info
-        return self.state, reward, self.check_done(), info
+        return self.state, self.state_numericals, reward, self.check_done(), info
 
 
     def check_done(self):

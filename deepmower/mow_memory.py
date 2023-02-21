@@ -8,6 +8,7 @@ from torch.distributions.categorical import Categorical
 class MowMemory:
     def __init__(self, batch_size):
         self.states = []
+        self.states_num = []
         self.probs = []
         self.vals = []
         self.actions = []
@@ -23,16 +24,18 @@ class MowMemory:
         np.random.shuffle(indices)
         batches = [indices[i:i+self.batch_size] for i in batch_start]
 
-        return np.array(self.states),\
-            np.array(self.actions),\
+        return np.array(self.states), \
+               np.array(self.states_num), \
+               np.array(self.actions),\
             np.array(self.probs),\
             np.array(self.vals),\
             np.array(self.rewards),\
             np.array(self.dones),\
             batches
 
-    def store_memory(self, state, action, probs, vals, reward, done):
+    def store_memory(self, state, state_numericals, action, probs, vals, reward, done):
         self.states.append(state)
+        self.states_num.append(state_numericals)
         self.actions.append(action)
         self.probs.append(probs)
         self.vals.append(vals)
@@ -41,6 +44,7 @@ class MowMemory:
 
     def clear_memory(self):
         self.states = []
+        self.states_num = []
         self.probs = []
         self.actions = []
         self.rewards = []
@@ -49,19 +53,33 @@ class MowMemory:
 
 class ActorNetwork(nn.Module):
     def __init__(self, n_actions, input_dims, alpha,
-            fc1_dims=256, fc2_dims=256, chkpt_dir='../checkpoints'):
+            fc1_dims=256, fc2_dims=256,
+                 fc2_num_dims=8,
+                 chkpt_dir='../checkpoints'):
         super(ActorNetwork, self).__init__()
 
         self.checkpoint_file = os.path.join(chkpt_dir, 'actor_torch_ppo')
-        self.actor = nn.Sequential(
+
+        self.hidden_state = nn.Sequential(
             nn.Conv2d(in_channels=7, out_channels=7, kernel_size=(3, 3)),
             nn.ReLU(),
             nn.Conv2d(in_channels=7, out_channels=7, kernel_size=(3, 3)),
             nn.ReLU(),
             nn.Flatten(1, -1),
-            nn.Linear(7*9*28, fc1_dims),
+            nn.Linear(7 * 9 * 28, fc1_dims),
             nn.ReLU(),
             nn.Linear(fc1_dims, fc2_dims),
+            nn.ReLU(),
+        ).float()
+
+        self.hidden_num = nn.Sequential(
+            nn.Linear(input_dims, fc2_num_dims),
+            nn.ReLU(),
+        ).float()
+
+
+        self.actor = nn.Sequential(
+            nn.Linear(fc2_num_dims+fc2_dims, fc2_dims),
             nn.ReLU(),
             nn.Linear(fc2_dims, n_actions),
             nn.Softmax(dim=-1)
@@ -71,11 +89,14 @@ class ActorNetwork(nn.Module):
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.to(self.device)
 
-    def forward(self, state):
-        # todo: fix hacky
+    def forward(self, state, state_num):
         if state.shape[0] == 7:
             state = state[None, :]
-        dist = self.actor(state)
+            state_num = state_num[None, :]
+        hidden1 = self.hidden_state(state)
+        hidden2 = self.hidden_num(state_num)
+        x = torch.cat((hidden1, hidden2), dim=1)
+        dist = self.actor(x)
         dist = Categorical(dist)
 
         return dist
@@ -88,20 +109,31 @@ class ActorNetwork(nn.Module):
 
 class CriticNetwork(nn.Module):
     def __init__(self, input_dims, alpha, fc1_dims = 256, fc2_dims = 256,
+                 fc2_num_dims = 8,
                  chkpt_dir = 'tmp/ppo'):
         super(CriticNetwork, self).__init__()
 
         self.checkpoint_file = os.path.join(chkpt_dir, 'critic_torch_ppo')
 
-        self.critic = nn.Sequential(
+        self.hidden_state = nn.Sequential(
             nn.Conv2d(in_channels=7, out_channels=7, kernel_size=(3, 3)),
             nn.ReLU(),
             nn.Conv2d(in_channels=7, out_channels=7, kernel_size=(3, 3)),
             nn.ReLU(),
-            nn.Flatten(1,-1),
-            nn.Linear(7*9*28, fc1_dims),
+            nn.Flatten(1, -1),
+            nn.Linear(7 * 9 * 28, fc1_dims),
             nn.ReLU(),
             nn.Linear(fc1_dims, fc2_dims),
+            nn.ReLU(),
+        ).float()
+
+        self.hidden_num = nn.Sequential(
+            nn.Linear(input_dims, fc2_num_dims),
+            nn.ReLU(),
+        ).float()
+
+        self.critic = nn.Sequential(
+            nn.Linear(fc2_num_dims+fc2_dims, fc2_dims),
             nn.ReLU(),
             nn.Linear(fc2_dims, 1)
         ).float()
@@ -110,10 +142,14 @@ class CriticNetwork(nn.Module):
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.to(self.device)
 
-    def forward(self, state):
+    def forward(self, state, state_num):
         if state.shape[0] == 7:
             state = state[None, :]
-        value = self.critic(state)
+            state_num = state_num[None, :]
+        hidden1 = self.hidden_state(state)
+        hidden2 = self.hidden_num(state_num)
+        x = torch.cat((hidden1, hidden2), dim=1)
+        value = self.critic(x)
 
         return value
 
@@ -137,8 +173,8 @@ class Agent:
         self.critic = CriticNetwork(input_dims, alpha)
         self.memory = MowMemory(batch_size)
 
-    def remember(self, state, action, probs, vals, reward, done):
-        self.memory.store_memory(state, action, probs, vals, reward, done)
+    def remember(self, state, state_numericals, action, probs, vals, reward, done):
+        self.memory.store_memory(state, state_numericals, action, probs, vals, reward, done)
 
     def save_models(self):
         print('... saving models ...')
@@ -150,12 +186,13 @@ class Agent:
         self.actor.load_checkpoint()
         self.critic.load_checkpoint()
 
-    def choose_action(self, observation):
+    def choose_action(self, observation, observation_num):
         #state = torch.tensor([observation], dtype = torch.float).to(self.actor.device)
         state = observation.to(self.actor.device)
+        state_num = observation_num.to(self.actor.device)
 
-        dist = self.actor(state)
-        value = self.critic(state)
+        dist = self.actor(state, state_num)
+        value = self.critic(state, state_num)
         action = dist.sample()
 
         probs = torch.squeeze(dist.log_prob(action)).item()
@@ -166,7 +203,7 @@ class Agent:
 
     def learn(self):
         for _ in range(self.n_epochs):
-            state_arr, action_arr, old_probs_arr, vals_arr,\
+            state_arr, state_num_arr, action_arr, old_probs_arr, vals_arr,\
                 reward_arr, dones_arr, batches = \
                 self.memory.generate_batches()
 
@@ -186,12 +223,13 @@ class Agent:
             values = torch.tensor(values).to(self.actor.device)
             for batch in batches:
                 states = torch.stack(list(state_arr[batch])).to(self.actor.device)
+                states_num = torch.stack(list(state_num_arr[batch])).to(self.actor.device)
                 #states = torch.tensor(state_arr[batch], dtype=torch.float).to(self.actor.device)
                 old_probs = torch.tensor(old_probs_arr[batch]).to(self.actor.device)
                 actions = torch.tensor(action_arr[batch]).to(self.actor.device)
 
-                dist = self.actor(states)
-                critic_value = self.critic(states)
+                dist = self.actor(states, states_num)
+                critic_value = self.critic(states, states_num)
 
                 critic_value = torch.squeeze(critic_value)
 
