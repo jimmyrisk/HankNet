@@ -6,30 +6,48 @@ import test_game_base
 
 from logger import logger
 
-run_id = 1
+# change LR:
+# - took longer to die
+#
+# print sum of weights:
+# - doesn't reveal anything
+#
+# discriminate between terminal state:
+# - think its ok!!
+#
+#
+# cosine restart:
+#
+
+
+debug = False
+
+run_id = 4
+lawn_num = 3
 
 #if __name__ == 'yt_main':
 if True:
     #env = gym.make('CartPole-v0')
 
-    lawn_num = 1
+
     auto = False
     sticky_probability = 0.2
 
-    env = test_game_base.test_game(lawn_num)
+    env = test_game_base.test_game(lawn_num, no_print=True)
 
 
-    N = 50
-    batch_size = 64
-    n_epochs = 10
+    #N = 128
+    N = 128
+    batch_size = 32
+    n_epochs = 3
     alpha = 0.0003
-    agent = Agent(n_actions=4,  # number of actions possible (4)
+    agent = Agent(n_actions= 4,  # number of actions possible (4)
                   batch_size = batch_size,  # number of sequential pieces learned from in a single epoch?
                   alpha = alpha,  # learning rate
                   n_epochs = n_epochs,  # number sampled to learn from??
-                  input_dims = 9 # env.observation_space.shape  # neural network "x" input?
+                  input_dims = 11  # env.observation_space.shape  # neural network "x" input?
                   )
-    n_games = 500
+    n_games = 10000
 
     figure_file = 'plots/test_game.png'
 
@@ -52,6 +70,9 @@ if True:
         score = 0
         while not done:
             action, prob, val = agent.choose_action(observation, observation_numericals)
+
+
+
             observation_, observation_numericals_, reward, done, info = env.step(action)
             logger.log(action, reward)
             observation_ = observation_.permute(2,0,1).float()
@@ -60,7 +81,12 @@ if True:
             score += reward
             agent.remember(observation, observation_numericals, action, prob, val, reward, done)
             if n_steps % N == 0:
+                if debug is True:
+                    agent.debug()
                 agent.learn()
+                if debug is True:
+                    agent.debug()
+
                 learn_iters += 1
             observation = observation_
             observation_numericals = observation_numericals_

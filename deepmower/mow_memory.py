@@ -18,8 +18,10 @@ class MowMemory:
         self.batch_size = batch_size
 
     def generate_batches(self):
+
         n_states = len(self.states)
         batch_start = np.arange(0, n_states, self.batch_size)
+
         indices = np.arange(n_states, dtype=np.int64)
         np.random.shuffle(indices)
         batches = [indices[i:i+self.batch_size] for i in batch_start]
@@ -54,7 +56,7 @@ class MowMemory:
 class ActorNetwork(nn.Module):
     def __init__(self, n_actions, input_dims, alpha,
             fc1_dims=256, fc2_dims=256,
-                 fc2_num_dims=8,
+                 fc2_num_dims=32,
                  chkpt_dir='../checkpoints'):
         super(ActorNetwork, self).__init__()
 
@@ -109,7 +111,7 @@ class ActorNetwork(nn.Module):
 
 class CriticNetwork(nn.Module):
     def __init__(self, input_dims, alpha, fc1_dims = 256, fc2_dims = 256,
-                 fc2_num_dims = 8,
+                 fc2_num_dims = 32,
                  chkpt_dir = 'tmp/ppo'):
         super(CriticNetwork, self).__init__()
 
@@ -163,7 +165,7 @@ class Agent:
     # default values from paper
     def __init__(self, n_actions, input_dims,
                  gamma=0.99, alpha=0.0003, gae_lambda = 0.95,
-                 policy_clip=0.2, batch_size = 64, N=2048, n_epochs = 10):
+                 policy_clip=0.1, batch_size = 64, N=2048, n_epochs = 10):
         self.gamma = gamma
         self.policy_clip = policy_clip
         self.n_epochs = n_epochs
@@ -207,25 +209,30 @@ class Agent:
                 reward_arr, dones_arr, batches = \
                 self.memory.generate_batches()
 
+
             values = vals_arr
             advantage = np.zeros(len(reward_arr), dtype=np.float32)
 
-            for t in range(len(reward_arr)-1):
+            for t in range(len(reward_arr) - 1):
                 discount = 1
                 a_t = 0
                 for k in range(t, len(reward_arr) - 1):
-                    a_t += discount*(reward_arr[k] + self.gamma*values[k+1]* \
-                                     (1-int(dones_arr[k])) - values[k])
-                    discount *= self.gamma*self.gae_lambda
+                    # a_t += discount * (reward_arr[k] + self.gamma * values[k + 1] * \
+                    #                    (1 - int(dones_arr[k])) - values[k])
+                    a_t += discount * (reward_arr[k] + self.gamma * values[k + 1] * \
+                                       (1 - int(dones_arr[k])) - values[k])
+                    discount *= self.gamma * self.gae_lambda
                 advantage[t] = a_t
             advantage = torch.tensor(advantage).to(self.actor.device)
 
             values = torch.tensor(values).to(self.actor.device)
+
             for batch in batches:
                 states = torch.stack(list(state_arr[batch])).to(self.actor.device)
                 states_num = torch.stack(list(state_num_arr[batch])).to(self.actor.device)
                 #states = torch.tensor(state_arr[batch], dtype=torch.float).to(self.actor.device)
                 old_probs = torch.tensor(old_probs_arr[batch]).to(self.actor.device)
+
                 actions = torch.tensor(action_arr[batch]).to(self.actor.device)
 
                 dist = self.actor(states, states_num)
@@ -235,6 +242,8 @@ class Agent:
 
                 new_probs = dist.log_prob(actions)
                 prob_ratio = new_probs.exp() / old_probs.exp()
+
+
                 weighted_probs = advantage[batch] * prob_ratio
                 weighted_clipped_probs = torch.clamp(prob_ratio, 1-self.policy_clip,
                                                      1+self.policy_clip)*advantage[batch]
@@ -254,3 +263,16 @@ class Agent:
                 self.critic.optimizer.step()
 
         self.memory.clear_memory()
+
+    def debug(self):
+        print("Debug info")
+        actor_wt_sum = sum(p.sum() for p in self.actor.parameters())
+        print(f"Sum of NN weights: {actor_wt_sum}")
+        print(f"- {sum(p.sum() for p in self.actor.hidden_state.parameters())}")
+        print(f"- {sum(p.sum() for p in self.actor.hidden_num.parameters())}")
+        print(f"- {sum(p.sum() for p in self.actor.actor.parameters())}")
+        critic_wt_sum = sum(p.sum() for p in self.critic.parameters())
+        print(f"Sum of NN weights: {critic_wt_sum}")
+        print(f"- {sum(p.sum() for p in self.critic.hidden_state.parameters())}")
+        print(f"- {sum(p.sum() for p in self.critic.hidden_num.parameters())}")
+        print(f"- {sum(p.sum() for p in self.critic.critic.parameters())}")

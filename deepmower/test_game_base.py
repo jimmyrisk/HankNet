@@ -61,10 +61,11 @@ from utils import memory_to_tensor, print_grid, cardinal_input, tracker, Episode
 # wrapper as in past work [1]
 
 class test_game:
-    def __init__(self, lawn):
+    def __init__(self, lawn, no_print = False):
         self.lawn = lawn
         self.init_state = load_lawn.csv_to_tensor(self.lawn)
         #self.state = self.init_state
+        self.no_print = no_print
 
         self.flower_penalty = 10
         self.rock_penalty = 30
@@ -92,10 +93,11 @@ class test_game:
         else:
             facing = "WEST"
 
-        print("--------------------------------")
-        print(f"FRAMES: {self.frames}  --  FUEL: {self.fuel}  --  DONE: {self.perc_done}% ")
-        print(f"MOMENTUM: {self.momentum}  --  FACING: {facing}")
-        print_grid(self.state)
+        if self.no_print is False:
+            print("--------------------------------")
+            print(f"FRAMES: {self.frames}  --  FUEL: {self.fuel}  --  DONE: {self.perc_done}% ")
+            print(f"MOMENTUM: {self.momentum}  --  FACING: {facing}")
+            print_grid(self.state)
 
 
     def reset(self):
@@ -112,8 +114,16 @@ class test_game:
         self.west = self.dir == 0
         self.north = self.dir == 4
         self.south = self.dir == 3
-        self.state_numericals = torch.tensor([self.frames/1000, self.fuel/100, self.momentum/4, self.perc_done/100,
-                                             self.east, self.west, self.north, self.south, self.mowed/100])
+        urgency_to_oof = 1 / (1 + self.fuel)
+        urgency_to_finish = 1 / (101 - self.perc_done)
+
+        self.state_numericals = torch.tensor(
+            [self.frames / 1000, self.fuel / 100, self.momentum / 4, self.perc_done / 100,
+             self.east, self.west, self.north, self.south, self.mowed / 100,
+             urgency_to_oof,
+             urgency_to_finish
+             ]
+        )
         self.actions = []
         self.states = []
         self.numerical_states = []
@@ -180,7 +190,11 @@ class test_game:
             self.mowed = self.mowed + 1
             self.perc_done = np.round(self.mowed.item() / self.total_grass.item() * 100, 2)
             self.state[new_coord[0], new_coord[1], 0] = 0.0
-            reward += 1 / np.sqrt(self.frames)
+            #reward += 1 / np.sqrt(self.frames)
+            reward += 1
+
+            if self.perc_done == 100:
+                reward += 100 / np.sqrt(self.frames)
 
         elif self.state[new_coord[0], new_coord[1], 1] == 1.0:
             # flower
@@ -204,14 +218,18 @@ class test_game:
 
         elif self.state[new_coord[0], new_coord[1], 5] == 1.0:
             # fuel
-            self.fuel = 100
+            self.fuel = 100.0
             self.state[new_coord[0], new_coord[1], 5] = 0.0
             print("TODO: Set Next Fuel Spawn")
-            reward += 100
+            reward += 0.5
 
         elif self.state[new_coord[0], new_coord[1], 6] == 1.0:
             # next fuel
             pass
+
+        # set fuel to 0
+        if self.fuel < 0:
+            self.fuel = 0.0
 
         self.state[coord[0], coord[1], 3] = 0.0
         self.state[new_coord[0], new_coord[1], 3] = 1.0
@@ -222,9 +240,17 @@ class test_game:
         self.west = self.dir == 0
         self.north = self.dir == 4
         self.south = self.dir == 3
+
+        urgency_to_oof = 1/(1+self.fuel)
+        urgency_to_finish = 1/(101-self.perc_done)
+
         self.state_numericals = torch.tensor(
             [self.frames / 1000, self.fuel / 100, self.momentum / 4, self.perc_done / 100,
-             self.east, self.west, self.north, self.south, self.mowed / 100])
+             self.east, self.west, self.north, self.south, self.mowed / 100,
+             urgency_to_oof,
+             urgency_to_finish
+             ]
+        )
 
         #return self.save_state(), reward, self.check_done(), info
         return self.state, self.state_numericals, reward, self.check_done(), info
@@ -233,16 +259,18 @@ class test_game:
     def check_done(self):
         if self.mowed == self.total_grass:
             done = True
-            print("--------------------------------")
-            print("-- DONE!")
-            print(f"-- FRAMES: {self.frames}  --  FUEL: {self.fuel}  --  DONE: {self.perc_done}% ")
-            print("--------------------------------")
+            if self.no_print is False:
+                print("--------------------------------")
+                print("-- DONE!")
+                print(f"-- FRAMES: {self.frames}  --  FUEL: {self.fuel}  --  DONE: {self.perc_done}% ")
+                print("--------------------------------")
         elif self.fuel < 1:
             done = True
-            print("--------------------------------")
-            print("-- OUT OF FUEL!")
-            print(f"-- FRAMES: {self.frames}  --  FUEL: {self.fuel}  --  DONE: {self.perc_done}% ")
-            print("--------------------------------")
+            if self.no_print is False:
+                print("--------------------------------")
+                print("-- OUT OF FUEL!")
+                print(f"-- FRAMES: {self.frames}  --  FUEL: {self.fuel}  --  DONE: {self.perc_done}% ")
+                print("--------------------------------")
         else:
             done = False
 
