@@ -225,6 +225,8 @@ class Agent:
                 advantage[t] = a_t
             advantage = torch.tensor(advantage).to(self.actor.device)
 
+            #advantage = (advantage - advantage.mean()) / (advantage.std() + 1e-10)
+
             values = torch.tensor(values).to(self.actor.device)
 
             for batch in batches:
@@ -241,7 +243,7 @@ class Agent:
                 critic_value = torch.squeeze(critic_value)
 
                 new_probs = dist.log_prob(actions)
-                prob_ratio = new_probs.exp() / old_probs.exp()
+                prob_ratio = (new_probs - old_probs).exp()
 
 
                 weighted_probs = advantage[batch] * prob_ratio

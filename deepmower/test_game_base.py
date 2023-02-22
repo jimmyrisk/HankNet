@@ -152,7 +152,7 @@ class test_game:
             numericals = [self.frames, self.fuel, self.momentum, self.perc_done]
             self.numerical_states.append(numericals)
 
-        reward = 0
+        reward = 0.0
         #print("updating...")
         # update
         self.frames = self.frames + 6

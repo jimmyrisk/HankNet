@@ -6,6 +6,9 @@ import test_game_base
 
 from logger import logger
 
+#
+#  https://medium.com/aureliantactics/ppo-hyperparameters-and-ranges-6fc2d29bccbe
+#
 # change LR:
 # - took longer to die
 #
@@ -18,6 +21,13 @@ from logger import logger
 #
 # cosine restart:
 #
+# add entropy
+#
+# add "done" critic
+#
+# train over each run instead of batch (in tandem with above)
+#
+# add scheduler on LR, etc
 
 
 debug = False
@@ -40,11 +50,15 @@ if True:
     N = 128
     batch_size = 32
     n_epochs = 3
-    alpha = 0.0003
+    #alpha = 0.0003
+    a = 1
+    alpha = 2.5e-4 * a
+    policy_clip = 0.1 * a
     agent = Agent(n_actions= 4,  # number of actions possible (4)
                   batch_size = batch_size,  # number of sequential pieces learned from in a single epoch?
                   alpha = alpha,  # learning rate
                   n_epochs = n_epochs,  # number sampled to learn from??
+                  policy_clip = policy_clip,
                   input_dims = 11  # env.observation_space.shape  # neural network "x" input?
                   )
     n_games = 10000
@@ -61,17 +75,20 @@ if True:
     logger = logger(run_id = run_id)
 
     for i in range(n_games):
+
+        a = 1 - i / n_games
+        agent.alpha = 2.5e-4 * a
+        agent.policy_clip = 0.1 * a
+
         # TODO: add run logger that exports action array, reward, % mowed, fuel picked up
         env.reset()
         #observation = env.save_state()
         observation = env.state.permute(2,0,1).float()  # oops, needed to change order
-        observation_numericals = env.state_numericals.float()  # oops, needed to change order
+        observation_numericals = env.state_numericals.float()
         done = False
         score = 0
         while not done:
             action, prob, val = agent.choose_action(observation, observation_numericals)
-
-
 
             observation_, observation_numericals_, reward, done, info = env.step(action)
             logger.log(action, reward)
