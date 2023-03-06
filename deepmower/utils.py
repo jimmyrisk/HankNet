@@ -122,13 +122,62 @@ def memory_to_tensor(memory):
 
     return state
 
-def plot_learning_curve(x, scores, figure_file):
-    running_avg = np.zeros(len(scores))
-    for i in range(len(running_avg)):
-        running_avg[i] = np.mean(scores[max(0, i-100):(i+1)])
-    plt.plot(x, running_avg)
+def plot_learning_curve(j, x, scores, total_loss, entropy, value, action, figure_file_score, figure_file_loss):
+    running_avg_score = np.zeros(len(x))
+
+    for i in range(len(running_avg_score)):
+        running_avg_score[i] = np.mean(scores[max(0, i - 100):(i + 1)])
+
+
+
+    fig, ax1 = plt.subplots()
+    ax1.set_ylabel('score', color='red')
+    ax1.plot(x, running_avg_score, color='red', label = 'Score')
+    ax1.tick_params(axis='y', labelcolor='red')
+
+    ax1.legend()
+
     plt.title('Running average of previous 100 scores')
-    plt.savefig(figure_file)
+    plt.savefig(figure_file_score)
+    plt.close()
+
+    if j > 10:
+        running_avg_total_loss = np.zeros(j)
+        running_avg_entropy = np.zeros(j)
+        running_avg_value = np.zeros(j)
+        running_avg_action = np.zeros(j)
+        y = [i + 1 for i in range(len(total_loss))]
+        for i in range(len(running_avg_entropy)):
+            running_avg_total_loss[i] = np.mean(total_loss[max(0, i - 10):(i + 1)])
+            running_avg_entropy[i] = np.mean(entropy[max(0, i - 10):(i + 1)])
+            running_avg_value[i] = np.mean(value[max(0, i - 10):(i + 1)])
+            running_avg_action[i] = np.mean(action[max(0, i - 10):(i + 1)])
+
+        fig, ax2 = plt.subplots()
+        ax2.set_ylabel('loss', color='blue')
+        ax2.plot(y[1:], running_avg_total_loss, label='Total Loss')
+        ax2.plot(y[1:], running_avg_entropy, label='Entropy')
+        ax2.plot(y[1:], running_avg_value, label='Value')
+        ax2.plot(y[1:], running_avg_action, label='Action')
+        ax2.tick_params(axis='y', labelcolor='blue')
+
+        ax2.legend()
+
+
+        plt.title('Running average of previous 10 losses')
+        plt.savefig(figure_file_loss)
+        plt.close()
+
+
+
+
+
+
+
+
+
+
+
 
 def cardinal_input(str):
     while str != "w" and str != "e" and str != "s" and str != "n" and str != "mpc":

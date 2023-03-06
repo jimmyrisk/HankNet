@@ -9,6 +9,8 @@ import load_lawn
 
 from utils import memory_to_tensor, print_grid, cardinal_input, tracker, EpisodeLogger
 
+
+
 # https://github.com/aremath/sm_rando/blob/master/abstraction_validation/go_explore.py
 
 #
@@ -68,7 +70,7 @@ class test_game:
         self.no_print = no_print
 
         self.flower_penalty = 10
-        self.rock_penalty = 30
+        self.rock_penalty = 20
 
 
 
@@ -104,24 +106,40 @@ class test_game:
         self.state = copy.deepcopy(self.init_state)
         self.frames = 0
         self.player_coord = (self.state[:, :, 3] == 1.0).nonzero()[0]
+
         self.momentum = 0
         self.dir = 1  # east
-        self.fuel = 100
+        self.fuel = 60
         self.total_grass = self.state[:, :, 0].sum()
         self.mowed = torch.tensor([0])
         self.perc_done = np.round(self.mowed.item() / self.total_grass.item()*100,2)
         self.east = self.dir == 1
         self.west = self.dir == 0
-        self.north = self.dir == 4
-        self.south = self.dir == 3
+        self.north = self.dir == 3
+        self.south = self.dir == 2
+
+        # if we start with a fuel
+        if self.state[:, :, 5].sum() == 1:
+            self.no_fuel = 0
+        # if we instead start with next fuel
+        else:
+            self.no_fuel = 1
+            self.fuel_coord = (self.state[:, :, 6] == 1.0).nonzero()[0]
+            self.frames_since_fuel = 0
+
         urgency_to_oof = 1 / (1 + self.fuel)
         urgency_to_finish = 1 / (101 - self.perc_done)
+
+        player_y = 13 - self.player_coord[0]
+        player_x = 32 - self.player_coord[1]
 
         self.state_numericals = torch.tensor(
             [self.frames / 1000, self.fuel / 100, self.momentum / 4, self.perc_done / 100,
              self.east, self.west, self.north, self.south, self.mowed / 100,
              urgency_to_oof,
-             urgency_to_finish
+             urgency_to_finish,
+             player_x / 32,
+             player_y / 13
              ]
         )
         self.actions = []
@@ -190,16 +208,18 @@ class test_game:
             self.mowed = self.mowed + 1
             self.perc_done = np.round(self.mowed.item() / self.total_grass.item() * 100, 2)
             self.state[new_coord[0], new_coord[1], 0] = 0.0
-            #reward += 1 / np.sqrt(self.frames)
-            reward += 1
+            self.state[new_coord[0], new_coord[1], 7] = 1.0
+            reward += 1 / np.sqrt(self.frames)
+            #reward += 1
 
             if self.perc_done == 100:
-                reward += 100 / np.sqrt(self.frames)
+                reward += 10000 / self.frames
 
         elif self.state[new_coord[0], new_coord[1], 1] == 1.0:
             # flower
             self.fuel = self.fuel - self.flower_penalty
             self.state[new_coord[0], new_coord[1], 1] = 0.0
+            self.state[new_coord[0], new_coord[1], 7] = 1.0
 
 
 
@@ -218,16 +238,33 @@ class test_game:
 
         elif self.state[new_coord[0], new_coord[1], 5] == 1.0:
             # fuel
-            self.fuel = 100.0
+            self.fuel = 60.0
             self.state[new_coord[0], new_coord[1], 5] = 0.0
-            print("TODO: Set Next Fuel Spawn")
-            reward += 0.5
+
+            # set next fuel spawn
+            fuel_choice_num = (self.state[:, :, 7] == 1.0).nonzero().size()[0]
+            fuel_choice_idx = torch.randperm(fuel_choice_num)[0]
+            self.fuel_coord = (self.state[:, :, 7] == 1.0).nonzero()[fuel_choice_idx]
+            self.state[self.fuel_coord[0], self.fuel_coord[1], 6] = 1.0
+
+            self.no_fuel = 1
+            self.frames_since_fuel = 0
+
+            #reward += 0.5
+            reward += 5 * np.exp(-3e-6 * self.frames - 2.5e-6 * self.frames ** 2)
+            print(reward)
 
         elif self.state[new_coord[0], new_coord[1], 6] == 1.0:
             # next fuel
             pass
 
-        # set fuel to 0
+        if self.no_fuel == 1:
+            self.frames_since_fuel += 1
+            if self.frames_since_fuel == 24:
+                self.state[self.fuel_coord[0], self.fuel_coord[1], 5] = 1.0
+                self.state[:, :, 6] = 0.0
+
+        #set fuel to 0
         if self.fuel < 0:
             self.fuel = 0.0
 
@@ -238,17 +275,21 @@ class test_game:
         info = None
         self.east = self.dir == 1
         self.west = self.dir == 0
-        self.north = self.dir == 4
-        self.south = self.dir == 3
+        self.north = self.dir == 3
+        self.south = self.dir == 2
 
         urgency_to_oof = 1/(1+self.fuel)
         urgency_to_finish = 1/(101-self.perc_done)
+        player_y = 13 - self.player_coord[0]
+        player_x = 32 - self.player_coord[1]
 
         self.state_numericals = torch.tensor(
             [self.frames / 1000, self.fuel / 100, self.momentum / 4, self.perc_done / 100,
              self.east, self.west, self.north, self.south, self.mowed / 100,
              urgency_to_oof,
-             urgency_to_finish
+             urgency_to_finish,
+             player_x / 32,
+             player_y / 13
              ]
         )
 

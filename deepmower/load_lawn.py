@@ -5,10 +5,11 @@ from copy import deepcopy
 import csv
 import warnings
 
+
 def csv_to_tensor(lawn_name):
     if isinstance(lawn_name, int):
         lawn_name = "lawn" + str(lawn_name)
-    state = torch.zeros(13,32,7).double()
+    state = torch.zeros(13,32,8).double()
     with open('test_game/lawns/' + lawn_name + ".csv", newline='') as csvfile:
         spamreader = csv.reader(csvfile, delimiter=',', quotechar='|')
         i = 0
@@ -17,12 +18,14 @@ def csv_to_tensor(lawn_name):
                 entry = row[j]
                 if entry == "P":
                     state[i,j,3] = 1.0
+                    state[i, j, 7] = 1.0
                 elif entry == "X":
                     state[i,j,4] = 1.0
                 elif entry == "1":
                     state[i,j,0] = 1.0
                 elif entry == "N":
                     state[i,j,6] = 1.0
+                    state[i, j, 7] = 1.0
                 elif entry == "G":
                     state[i,j,5] = 1.0
                 elif entry == "R":
@@ -30,7 +33,7 @@ def csv_to_tensor(lawn_name):
                 elif entry == "F":
                     state[i,j,1] = 1.0
                 elif entry == "0":
-                    pass
+                    state[i,j,7] = 1.0
                 else:
                     warnings.warn("Found " + entry + ", which is not a valid choice...")
 
