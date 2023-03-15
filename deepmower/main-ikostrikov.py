@@ -31,32 +31,39 @@ from datetime import datetime
 
 debug = False
 
-run_id = 2
-lawn_num = 1
+run_id = 201
+lawn_num = 12
 
-random_seed = 0         # set random seed if required (0 = no random seed)
+random_seed = lawn_num + run_id + lawn_num * run_id        # set random seed if required (0 = no random seed)
+print(random_seed)
 
 n_actions = 4
-input_dims = 13
+input_dims = 17
+
+# SIL/hypers stuff: https://arxiv.org/pdf/2004.12919.pdf p31
 
 env_name = f"lawn{lawn_num}"
 args = get_args()
 args.algo = 'ppo'
 args.use_gae = True
 args.log_interval = 1
-args.num_steps = 2048
+args.num_steps = 2048  # divide by num_mini_batch to get minibatch size (T?)
 args.num_processes = 1
 args.lr = 2.5e-4
 args.clip_param = 0.1
 args.entropy_coef = 0.01
-args.value_loss_coef = 0.25
+args.value_loss_coef = 0.5
 args.ppo_epoch = 10
 args.num_mini_batch = 32
-args.gamma = 0.99
-args.gae_lambda = 0.95
+args.gamma = 0.999  # was 0.99
+args.gae_lambda = 0.90  # was 0.95
 args.num_env_steps = 1000000
 args.use_linear_lr_decay = True
 args.use_proper_time_limits = True
+args.recurrent_policy = True
+args.ridge_lambda = 1e-7
+
+
 
 def main():
     #args = get_args()
@@ -103,9 +110,12 @@ def main():
         args.num_mini_batch,
         args.value_loss_coef,
         args.entropy_coef,
+        args.ridge_lambda,
         lr=args.lr,
         eps=args.eps,
         max_grad_norm=args.max_grad_norm)
+
+
 
     log_dir = "PPO_logs"
     if not os.path.exists(log_dir):
@@ -120,7 +130,7 @@ def main():
     run_num = len(current_num_files)
 
     import logger
-    logger = logger.logger(run_num, path=log_dir)
+    logger = logger.logger(run_num, env = env, path=log_dir)
 
     #### create new log file for each run
     log_f_name = log_dir + '/PPO_' + env_name + "_log_" + str(run_num) + ".csv"''
@@ -158,6 +168,9 @@ def main():
     log_freq = 100
 
     env.reset()
+
+    run_num = 1
+
     obs = env.state
     obs = obs.permute(2, 0, 1)  # oops, needed to change order
     obs_num = env.state_numericals
@@ -172,6 +185,7 @@ def main():
     # episode_actions = deque(maxlen=100)
 
     episode_rewards = []
+    episode_perc_dones = []
     episode_total_losses = []
     episode_entropies = []
     episode_values = []
@@ -243,11 +257,14 @@ def main():
                 masks = torch.tensor(0.0)
                 bad_masks = torch.tensor(0.0)
 
-                logger.write(score)
+                logger.write(score, run_num)
                 episode_rewards.append(score)
+                episode_perc_dones.append(env.perc_done)
                 score = 0
 
                 env.reset()
+
+                run_num += 1
 
             else:
                 masks = torch.tensor(1.0)
@@ -288,7 +305,7 @@ def main():
 
         with torch.no_grad():
             total_loss = action_loss + value_loss * args.value_loss_coef - args.entropy_coef * dist_entropy
-            episode_rewards.append(score)
+
             episode_total_losses.append(total_loss)
             episode_values.append(0.5*value_loss)
             episode_actions.append(action_loss)
@@ -322,12 +339,16 @@ def main():
                             int(total_num_steps / (end - start)),
                             len(episode_rewards), np.mean(episode_rewards),
                             np.median(episode_rewards), np.min(episode_rewards),
-                            np.max(episode_rewards), dist_entropy, value_loss,
+                            np.max(episode_rewards),
+                            - args.entropy_coef * dist_entropy,
+                            value_loss * args.value_loss_coef,
                             action_loss))
             x = [i + 1 for i in range(len(episode_rewards))]
 
             if len(episode_rewards) > 100:
-                plot_learning_curve(j, x, episode_rewards, episode_total_losses,
+                plot_learning_curve(j, x, episode_rewards,
+                                    episode_perc_dones,
+                                    episode_total_losses,
                                     episode_entropies,
                                     episode_values,
                                     episode_actions,

@@ -109,7 +109,8 @@ class NNBase(nn.Module):
         if x.size(0) == hxs.size(0):
             x, hxs = self.gru(x.unsqueeze(0), (hxs * masks).unsqueeze(0))
             x = x.squeeze(0)
-            hxs = hxs.squeeze(0)
+            # hxs = hxs.squeeze(0)
+            hxs = hxs.squeeze(0).squeeze(0)  # need to do twice because of hacky thing in forward
         else:
             # x is a (T, N, -1) tensor that has been flatten to (T * N, -1)
             N = hxs.size(0)
@@ -230,11 +231,16 @@ class MLPBase(NNBase):
 
 
 class HybridBase(NNBase):
-    def __init__(self, num_inputs, recurrent=False, hidden_size=512, hidden_num=32):
-        super(HybridBase, self).__init__(recurrent, hidden_size, hidden_size)
+    def __init__(self, num_inputs, recurrent=False, hidden_size=512, hidden_num=512):
+        super(HybridBase, self).__init__(recurrent, hidden_size, hidden_num)
+
+        # if recurrent:
+        #     num_inputs = hidden_size
 
         init_cnn_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
                                constant_(x, 0), nn.init.calculate_gain('relu'))
+
+
 
         self.main = nn.Sequential(
             init_cnn_(nn.Conv2d(in_channels=8, out_channels=8, kernel_size=(3, 3))), nn.ReLU(),
@@ -243,11 +249,15 @@ class HybridBase(NNBase):
             Flatten(),
             init_cnn_(nn.Linear(8 * 9 * 28, hidden_size)), nn.ReLU())
 
-        if recurrent:
-            num_inputs = hidden_size
+        # if recurrent:
+        #     num_inputs = hidden_size
 
         init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
                                constant_(x, 0), np.sqrt(2))
+
+        self.combined_hidden_1 = nn.Sequential(
+            init_(nn.Linear(num_inputs+hidden_size, hidden_num)), nn.Tanh()
+        )
 
         self.actor_hidden = nn.Sequential(
             init_(nn.Linear(num_inputs, hidden_num)), nn.Tanh()
@@ -275,13 +285,22 @@ class HybridBase(NNBase):
         if inputs.shape[0] == 8:
             inputs = inputs[None, :]
             inputs_num = inputs_num[None, :]
+            rnn_hxs = rnn_hxs[None, :]
         x = self.main(inputs)
+
+
+
+        # attempt 1:
+        #  - concat -> GRU -> split -> reuse x_num
+
+        x_concat = torch.cat((x, inputs_num), dim=1)
+        x = self.combined_hidden_1(x_concat)
 
         if self.is_recurrent:
             x, rnn_hxs = self._forward_gru(x, rnn_hxs, masks)
 
         x_num_actor = self.actor_hidden(inputs_num)
-        x_num_critic = self.actor_hidden(inputs_num)
+        x_num_critic = self.critic_hidden(inputs_num)
 
         x_actor = torch.cat((x, x_num_actor), dim=1)
         x_critic = torch.cat((x, x_num_critic), dim=1)

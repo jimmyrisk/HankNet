@@ -3,6 +3,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
+# import wandb
+#
+# import os
+# os.environ['WANDB_WATCH'] = 'false'
+
 
 class PPO():
     def __init__(self,
@@ -12,12 +17,16 @@ class PPO():
                  num_mini_batch,
                  value_loss_coef,
                  entropy_coef,
+                 ridge_lambda = 0,
                  lr=None,
                  eps=None,
                  max_grad_norm=None,
                  use_clipped_value_loss=True):
 
         self.actor_critic = actor_critic
+
+        # wandb.init()
+        # wandb.watch(self.actor_critic, log='all')
 
         self.clip_param = clip_param
         self.ppo_epoch = ppo_epoch
@@ -29,7 +38,7 @@ class PPO():
         self.max_grad_norm = max_grad_norm
         self.use_clipped_value_loss = use_clipped_value_loss
 
-        self.optimizer = optim.Adam(actor_critic.parameters(), lr=lr, eps=eps)
+        self.optimizer = optim.Adam(actor_critic.parameters(), lr=lr, eps=eps, weight_decay=ridge_lambda)
 
     def update(self, rollouts):
         advantages = rollouts.returns[:-1] - rollouts.value_preds[:-1]
@@ -42,7 +51,9 @@ class PPO():
 
         for e in range(self.ppo_epoch):
             if self.actor_critic.is_recurrent:
-                data_generator = rollouts.recurrent_generator(
+                # data_generator = rollouts.recurrent_generator(
+                #     advantages, self.num_mini_batch)
+                data_generator = rollouts.feed_forward_generator(
                     advantages, self.num_mini_batch)
             else:
                 data_generator = rollouts.feed_forward_generator(
@@ -78,8 +89,16 @@ class PPO():
 
 
                 self.optimizer.zero_grad()
-                (value_loss * self.value_loss_coef + action_loss -
-                 dist_entropy * self.entropy_coef).backward()
+                loss = (value_loss * self.value_loss_coef + action_loss -
+                 dist_entropy * self.entropy_coef)
+
+                loss.backward()
+
+                # wandb.log({'Train Loss': loss.item()})
+                #            # 'Value Loss': value_loss.item(),
+                #            # 'Action Loss': action_loss.item(),
+                #            # 'Ent Loss': dist_entropy.item()})
+
                 nn.utils.clip_grad_norm_(self.actor_critic.parameters(),
                                          self.max_grad_norm)
                 self.optimizer.step()

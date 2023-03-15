@@ -106,8 +106,16 @@ class test_game:
         self.state = copy.deepcopy(self.init_state)
         self.frames = 0
         self.player_coord = (self.state[:, :, 3] == 1.0).nonzero()[0]
+        self.fuel_counter = 0
+
+        self.fuel_rewards = 0
+        self.grass_rewards = 0
+        self.amt_fuel_obtained = 0
+
+        self.frames_since_fuel = 0
 
         self.momentum = 0
+        self.momentum_lost = 0
         self.dir = 1  # east
         self.fuel = 60
         self.total_grass = self.state[:, :, 0].sum()
@@ -121,17 +129,23 @@ class test_game:
         # if we start with a fuel
         if self.state[:, :, 5].sum() == 1:
             self.no_fuel = 0
+            self.fuel_coord = (self.state[:, :, 5] == 1.0).nonzero()[0]
         # if we instead start with next fuel
         else:
             self.no_fuel = 1
             self.fuel_coord = (self.state[:, :, 6] == 1.0).nonzero()[0]
             self.frames_since_fuel = 0
 
-        urgency_to_oof = 1 / (1 + self.fuel)
+        urgency_to_oof = 1 / (61 - self.fuel)
         urgency_to_finish = 1 / (101 - self.perc_done)
 
         player_y = 13 - self.player_coord[0]
         player_x = 32 - self.player_coord[1]
+
+        fuel_y = 13 - self.fuel_coord[0]
+        fuel_x = 32 - self.fuel_coord[1]
+
+        fuel_manhattan = abs(player_x - fuel_x) + abs(player_y - fuel_y)
 
         self.state_numericals = torch.tensor(
             [self.frames / 1000, self.fuel / 100, self.momentum / 4, self.perc_done / 100,
@@ -139,7 +153,11 @@ class test_game:
              urgency_to_oof,
              urgency_to_finish,
              player_x / 32,
-             player_y / 13
+             player_y / 13,
+             fuel_x / 32,
+             fuel_y / 13,
+             fuel_manhattan / (32+13),
+             self.fuel_counter / 10
              ]
         )
         self.actions = []
@@ -170,6 +188,7 @@ class test_game:
             numericals = [self.frames, self.fuel, self.momentum, self.perc_done]
             self.numerical_states.append(numericals)
 
+        #reward = -0.1
         reward = 0.0
         #print("updating...")
         # update
@@ -184,7 +203,9 @@ class test_game:
                 self.frames = self.frames - 1
                 self.momentum = 0
         else:
+            self.momentum_lost += self.momentum
             self.momentum = 0
+
 
         self.dir = action
 
@@ -209,11 +230,21 @@ class test_game:
             self.perc_done = np.round(self.mowed.item() / self.total_grass.item() * 100, 2)
             self.state[new_coord[0], new_coord[1], 0] = 0.0
             self.state[new_coord[0], new_coord[1], 7] = 1.0
-            reward += 1 / np.sqrt(self.frames)
+            reward += (1 + self.perc_done) / np.log(self.frames)
+            self.grass_rewards += reward
             #reward += 1
 
             if self.perc_done == 100:
-                reward += 10000 / self.frames
+                done_reward = (
+                        np.max(1000 - self.frames, 0) / 100 +
+                        4 / (self.fuel_counter + 1) * (1 + self.perc_done) / np.log(self.frames) +
+                        np.max(100 - self.fuel_rewards, 0)
+                )
+
+                print(
+                    f"-- DONE!: reward: {done_reward:.2f}  --  fuel pickups: {self.fuel_counter}  --  %: {self.perc_done}  --  fr: {self.frames}  --  g-rew: {reward:.2f}")
+
+                reward += done_reward
 
         elif self.state[new_coord[0], new_coord[1], 1] == 1.0:
             # flower
@@ -238,7 +269,7 @@ class test_game:
 
         elif self.state[new_coord[0], new_coord[1], 5] == 1.0:
             # fuel
-            self.fuel = 60.0
+
             self.state[new_coord[0], new_coord[1], 5] = 0.0
 
             # set next fuel spawn
@@ -247,12 +278,32 @@ class test_game:
             self.fuel_coord = (self.state[:, :, 7] == 1.0).nonzero()[fuel_choice_idx]
             self.state[self.fuel_coord[0], self.fuel_coord[1], 6] = 1.0
 
+            #fuel_reward = 500 * 1 / (1 + self.fuel) * np.exp(-3e-6 * self.frames - 2.5e-6 * self.frames ** 2)
+
+
+
+            self.fuel_counter += 1
+            self.amt_fuel_obtained += 60.0 - self.fuel
+
+            #fuel_reward = (3 / self.fuel_counter) * (1 + self.perc_done) / np.sqrt(self.frames) * 60 / (1+self.fuel)
+            fuel_reward = 4 / self.fuel_counter * (1 + self.perc_done) / np.log(self.frames)
+
+            if self.fuel_rewards + fuel_reward > 100:
+                fuel_reward = max(100 - self.fuel_rewards, 0)
+
+            self.fuel_rewards += fuel_reward
+
+            reward += fuel_reward
+
             self.no_fuel = 1
             self.frames_since_fuel = 0
 
-            #reward += 0.5
-            reward += 5 * np.exp(-3e-6 * self.frames - 2.5e-6 * self.frames ** 2)
-            print(reward)
+            self.fuel = 60.0
+
+            #reward += 5 * np.exp(-3e-6 * self.frames - 2.5e-6 * self.frames ** 2)
+
+            g_rew = (1 + self.perc_done) / np.log(self.frames)
+            print(f"fuel pickup: {self.fuel_counter}  --  reward: {fuel_reward:.2f}  --  %: {self.perc_done}  --  fr: {self.frames}  --  g-rew: {g_rew:.2f}")
 
         elif self.state[new_coord[0], new_coord[1], 6] == 1.0:
             # next fuel
@@ -278,10 +329,20 @@ class test_game:
         self.north = self.dir == 3
         self.south = self.dir == 2
 
-        urgency_to_oof = 1/(1+self.fuel)
+        urgency_to_oof = 1/(61 - self.fuel)
         urgency_to_finish = 1/(101-self.perc_done)
         player_y = 13 - self.player_coord[0]
         player_x = 32 - self.player_coord[1]
+
+        fuel_y = 13 - self.fuel_coord[0]
+        fuel_x = 32 - self.fuel_coord[1]
+
+        fuel_manhattan = abs(player_x - fuel_x) + abs(player_y - fuel_y)
+
+
+        # print(f"player coord: [{player_x.item()}, {player_y.item()}")
+        # print(f" fuel  coord: [{fuel_x.item()}, {fuel_y.item()}")
+        # print(f"manhattan   : {fuel_manhattan}")
 
         self.state_numericals = torch.tensor(
             [self.frames / 1000, self.fuel / 100, self.momentum / 4, self.perc_done / 100,
@@ -289,9 +350,16 @@ class test_game:
              urgency_to_oof,
              urgency_to_finish,
              player_x / 32,
-             player_y / 13
+             player_y / 13,
+             fuel_x / 32,
+             fuel_y / 13,
+             fuel_manhattan / (32+13),
+             self.fuel_counter / 10
              ]
         )
+
+        # scale if needed
+        reward = reward / 100
 
         #return self.save_state(), reward, self.check_done(), info
         return self.state, self.state_numericals, reward, self.check_done(), info

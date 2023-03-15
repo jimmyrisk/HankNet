@@ -122,11 +122,13 @@ def memory_to_tensor(memory):
 
     return state
 
-def plot_learning_curve(j, x, scores, total_loss, entropy, value, action, figure_file_score, figure_file_loss):
+def plot_learning_curve(j, x, scores, perc_dones, total_loss, entropy, value, action, figure_file_score, figure_file_loss):
     running_avg_score = np.zeros(len(x))
+    running_avg_perc_done = np.zeros(len(x))
 
     for i in range(len(running_avg_score)):
         running_avg_score[i] = np.mean(scores[max(0, i - 100):(i + 1)])
+        running_avg_perc_done[i] = np.mean(perc_dones[max(0, i - 100):(i + 1)])
 
 
 
@@ -135,9 +137,19 @@ def plot_learning_curve(j, x, scores, total_loss, entropy, value, action, figure
     ax1.plot(x, running_avg_score, color='red', label = 'Score')
     ax1.tick_params(axis='y', labelcolor='red')
 
-    ax1.legend()
+    ax1.set_xlabel('Run', color = 'black')
 
-    plt.title('Running average of previous 100 scores')
+
+    #ax1.legend()
+
+    ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+
+    color = 'blue'
+    ax2.set_ylabel('% Done', color=color)  # we already handled the x-label with ax1
+    ax2.plot(x, running_avg_perc_done, color=color)
+    ax2.tick_params(axis='y', labelcolor=color)
+
+    plt.title('Running average over previous 100 runs')
     plt.savefig(figure_file_score)
     plt.close()
 
@@ -153,18 +165,20 @@ def plot_learning_curve(j, x, scores, total_loss, entropy, value, action, figure
             running_avg_value[i] = np.mean(value[max(0, i - 10):(i + 1)])
             running_avg_action[i] = np.mean(action[max(0, i - 10):(i + 1)])
 
-        fig, ax2 = plt.subplots()
-        ax2.set_ylabel('loss', color='blue')
-        ax2.plot(y[1:], running_avg_total_loss, label='Total Loss')
-        ax2.plot(y[1:], running_avg_entropy, label='Entropy')
-        ax2.plot(y[1:], running_avg_value, label='Value')
-        ax2.plot(y[1:], running_avg_action, label='Action')
-        ax2.tick_params(axis='y', labelcolor='blue')
+        fig, ax3 = plt.subplots()
+        ax3.set_ylabel('loss', color='blue')
+        ax3.plot(y[1:], running_avg_total_loss, label='Total Loss')
+        ax3.plot(y[1:], running_avg_entropy, label='Entropy')
+        ax3.plot(y[1:], running_avg_value, label='Value')
+        ax3.plot(y[1:], running_avg_action, label='Action')
+        ax3.tick_params(axis='y', labelcolor='blue')
 
-        ax2.legend()
+        ax3.set_xlabel('Update', color='black')
+
+        ax3.legend()
 
 
-        plt.title('Running average of previous 10 losses')
+        plt.title('Running average over previous 10 updates')
         plt.savefig(figure_file_loss)
         plt.close()
 
