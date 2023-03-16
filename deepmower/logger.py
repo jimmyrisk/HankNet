@@ -7,14 +7,29 @@ class logger:
         self.done = 0
         self.score = 0
         self.fuel = 0
-        self.path = path + str(run_id) + ".csv"
+        self.path = path
+        self.filename = path + str(run_id) + ".csv"
+        self.filename_loss = path + str(run_id) + "_loss_plots.csv"
+        self.filename_rewards = path + str(run_id) + "_reward_plots.csv"
         self.env = env
 
-        with open(self.path, mode='a', newline='') as csv_output:
+        with open(self.filename, mode='a', newline='') as csv_output:
             wr = csv.writer(csv_output)
             row = ["Run", "Path", "Rewards", "Score", "Fuel_Score", "Grass_Score", "Num_Fuel_Obtained",
                    "Amt_Fuel_Obtained", "End_Fuel", "Frames", "End_x", "End_y", "Perc_done", "Frames_Since_Fuel",
                    "Momentum Lost"]
+            wr.writerow(row)
+            csv_output.close()
+
+        with open(self.filename_loss, mode='a', newline='') as csv_output:
+            wr = csv.writer(csv_output)
+            row = ["iter", 'total_loss', 'value_loss', 'action_loss', 'entropy_loss']
+            wr.writerow(row)
+            csv_output.close()
+
+        with open(self.filename_rewards, mode='a', newline='') as csv_output:
+            wr = csv.writer(csv_output)
+            row = ["iter", 'rewards', 'perc_done']
             wr.writerow(row)
             csv_output.close()
 
@@ -23,7 +38,7 @@ class logger:
         self.rewards.append(reward)
 
     def write(self, score, run_num = 0):
-        with open(self.path, mode='a', newline='') as csv_output:
+        with open(self.filename, mode='a', newline='') as csv_output:
             wr = csv.writer(csv_output)
             row = [run_num,
                 self.actions, self.rewards, score,
@@ -45,3 +60,27 @@ class logger:
         self.rewards = []
         self.score = 0
         self.fuel = 0
+
+
+
+    def write_loss(self, iter, total_loss, value_loss, action_loss, entropy_loss):
+        with open(self.filename_loss, mode='a', newline='') as csv_output:
+            wr = csv.writer(csv_output)
+            row = [iter,
+                   total_loss,
+                   value_loss,
+                   action_loss,
+                   entropy_loss
+                   ]
+            wr.writerow(row)
+            csv_output.close()
+
+    def write_rewards(self, iter, reward, perc_done):
+        with open(self.filename_rewards, mode='a', newline='') as csv_output:
+            wr = csv.writer(csv_output)
+            row = [iter,
+                   reward,
+                   perc_done
+                   ]
+            wr.writerow(row)
+            csv_output.close()

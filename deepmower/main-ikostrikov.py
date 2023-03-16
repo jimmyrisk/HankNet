@@ -31,37 +31,32 @@ from datetime import datetime
 
 debug = False
 
-run_id = 201
-lawn_num = 12
-
-random_seed = lawn_num + run_id + lawn_num * run_id        # set random seed if required (0 = no random seed)
-print(random_seed)
 
 n_actions = 4
 input_dims = 17
 
 # SIL/hypers stuff: https://arxiv.org/pdf/2004.12919.pdf p31
 
-env_name = f"lawn{lawn_num}"
+
 args = get_args()
-args.algo = 'ppo'
-args.use_gae = True
-args.log_interval = 1
-args.num_steps = 2048  # divide by num_mini_batch to get minibatch size (T?)
-args.num_processes = 1
-args.lr = 2.5e-4
-args.clip_param = 0.1
-args.entropy_coef = 0.01
-args.value_loss_coef = 0.5
-args.ppo_epoch = 10
-args.num_mini_batch = 32
-args.gamma = 0.999  # was 0.99
-args.gae_lambda = 0.90  # was 0.95
-args.num_env_steps = 1000000
-args.use_linear_lr_decay = True
-args.use_proper_time_limits = True
-args.recurrent_policy = True
-args.ridge_lambda = 1e-7
+
+
+run_id = args.run_id
+lawn_num = args.lawn_num
+
+
+
+random_seed = lawn_num + run_id + lawn_num * run_id        # set random seed if required (0 = no random seed)
+args.seed = random_seed
+
+
+env_name = f"lawn{lawn_num}"
+
+
+print(f"Beginning run on Lawn {lawn_num}.  Run ID: {run_id}.  Random Seed: {random_seed}")
+
+
+
 
 
 
@@ -92,7 +87,7 @@ def main():
     #                 #device,
     #                 allow_early_resets = False)
 
-    env = test_game_base.test_game(lawn_num, no_print=True)
+    env = test_game_base.test_game(lawn_num, args.reward_type, no_print=True)
 
     print(env.state.shape)
 
@@ -121,13 +116,18 @@ def main():
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
 
-    log_dir = log_dir + '/' + env_name + '/'
+
+    sub_dir = 'go_explore_' + str(args.go_explore) + '/reward_function' + str(args.reward_type) + "/"
+
+    log_dir = log_dir + '/' + env_name + '/' + sub_dir
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
 
     #### get number of log files in log directory
     current_num_files = next(os.walk(log_dir))[2]
-    run_num = len(current_num_files)
+    #run_num = len(current_num_files)
+
+    run_num = run_id
 
     import logger
     logger = logger.logger(run_num, env = env, path=log_dir)
@@ -260,6 +260,8 @@ def main():
                 logger.write(score, run_num)
                 episode_rewards.append(score)
                 episode_perc_dones.append(env.perc_done)
+                logger.write_rewards(run_num, score, env.perc_done)
+
                 score = 0
 
                 env.reset()
@@ -304,12 +306,14 @@ def main():
         value_loss, action_loss, dist_entropy = agent.update(rollouts)
 
         with torch.no_grad():
-            total_loss = action_loss + value_loss * args.value_loss_coef - args.entropy_coef * dist_entropy
+            total_loss = action_loss + value_loss - args.entropy_coef * dist_entropy
 
             episode_total_losses.append(total_loss)
-            episode_values.append(0.5*value_loss)
+            episode_values.append(value_loss * args.value_loss_coef)
             episode_actions.append(action_loss)
             episode_entropies.append(-args.entropy_coef * dist_entropy)
+
+            logger.write_loss(j, total_loss, value_loss * args.value_loss_coef, action_loss, -args.entropy_coef * dist_entropy)
 
         rollouts.after_update()
 
@@ -334,8 +338,8 @@ def main():
             total_num_steps = (j + 1) * args.num_steps
             end = time.time()
             print(
-                "Updates {}, num timesteps {}, FPS {} \n Last {} training episodes: mean/median reward {:.1f}/{:.1f}, min/max reward {:.1f}/{:.1f}\nentropy: {:.4f}, value: {:.4f}, action: {:.4f}"
-                    .format(j, total_num_steps,
+                "Run_num {}, Updates {}, num timesteps {}, FPS {} \n Last {} training episodes: mean/median reward {:.1f}/{:.1f}, min/max reward {:.1f}/{:.1f}\nentropy: {:.4f}, value: {:.4f}, action: {:.4f}"
+                    .format(run_id, j, total_num_steps,
                             int(total_num_steps / (end - start)),
                             len(episode_rewards), np.mean(episode_rewards),
                             np.median(episode_rewards), np.min(episode_rewards),
@@ -353,7 +357,9 @@ def main():
                                     episode_values,
                                     episode_actions,
                                     log_p1_name,
-                                    log_p2_name)
+                                    log_p2_name,
+                                    lawn_num,
+                                    run_id)
 
         if (args.eval_interval is not None and len(episode_rewards) > 1
                 and j % args.eval_interval == 0):

@@ -122,7 +122,8 @@ def memory_to_tensor(memory):
 
     return state
 
-def plot_learning_curve(j, x, scores, perc_dones, total_loss, entropy, value, action, figure_file_score, figure_file_loss):
+def plot_learning_curve(j, x, scores, perc_dones, total_loss, entropy, value, action, figure_file_score, figure_file_loss,
+                        lawn_num, run_id):
     running_avg_score = np.zeros(len(x))
     running_avg_perc_done = np.zeros(len(x))
 

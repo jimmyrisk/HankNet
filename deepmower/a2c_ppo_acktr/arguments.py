@@ -6,7 +6,7 @@ import torch
 def get_args():
     parser = argparse.ArgumentParser(description='RL')
     parser.add_argument(
-        '--algo', default='a2c', help='algorithm to use: a2c | ppo | acktr')
+        '--algo', default='ppo', help='algorithm to use: a2c | ppo | acktr')
     parser.add_argument(
         '--gail',
         action='store_true',
@@ -24,7 +24,7 @@ def get_args():
     parser.add_argument(
         '--gail-epoch', type=int, default=5, help='gail epochs (default: 5)')
     parser.add_argument(
-        '--lr', type=float, default=7e-4, help='learning rate (default: 7e-4)')
+        '--lr', type=float, default=2.5e-4, help='learning rate (default: 7e-4)')
     parser.add_argument(
         '--eps',
         type=float,
@@ -38,17 +38,17 @@ def get_args():
     parser.add_argument(
         '--gamma',
         type=float,
-        default=0.99,
+        default=0.999,
         help='discount factor for rewards (default: 0.99)')
     parser.add_argument(
         '--use-gae',
         action='store_true',
-        default=False,
+        default=True,
         help='use generalized advantage estimation')
     parser.add_argument(
         '--gae-lambda',
         type=float,
-        default=0.95,
+        default=0.90,
         help='gae lambda parameter (default: 0.95)')
     parser.add_argument(
         '--entropy-coef',
@@ -75,17 +75,27 @@ def get_args():
     parser.add_argument(
         '--num-processes',
         type=int,
-        default=16,
+        default=1,
         help='how many training CPU processes to use (default: 16)')
     parser.add_argument(
         '--num-steps',
         type=int,
-        default=5,
+        default=2048,
         help='number of forward steps in A2C (default: 5)')
+    parser.add_argument(
+        '--run-id',
+        type=int,
+        default=1,
+        help='run id')
+    parser.add_argument(
+        '--lawn-num',
+        type=int,
+        default=11,
+        help='lawn number')
     parser.add_argument(
         '--ppo-epoch',
         type=int,
-        default=4,
+        default=10,
         help='number of ppo epochs (default: 4)')
     parser.add_argument(
         '--num-mini-batch',
@@ -95,12 +105,17 @@ def get_args():
     parser.add_argument(
         '--clip-param',
         type=float,
-        default=0.2,
+        default=0.1,
         help='ppo clip parameter (default: 0.2)')
+    parser.add_argument(
+        '--ridge-lambda',
+        type=float,
+        default=1e-7,
+        help='l2 penalty')
     parser.add_argument(
         '--log-interval',
         type=int,
-        default=10,
+        default=1,
         help='log interval, one log per n updates (default: 10)')
     parser.add_argument(
         '--save-interval',
@@ -113,9 +128,14 @@ def get_args():
         default=None,
         help='eval interval, one eval per n updates (default: None)')
     parser.add_argument(
+        '--reward-type',
+        type=int,
+        default=1,
+        help='type of reward function used')
+    parser.add_argument(
         '--num-env-steps',
         type=int,
-        default=10e6,
+        default=1000000,
         help='number of environment steps to train (default: 10e6)')
     parser.add_argument(
         '--env-name',
@@ -137,18 +157,24 @@ def get_args():
     parser.add_argument(
         '--use-proper-time-limits',
         action='store_true',
-        default=False,
+        default=True,
         help='compute returns taking into account time limits')
     parser.add_argument(
         '--recurrent-policy',
         action='store_true',
-        default=False,
+        default=True,
         help='use a recurrent policy')
+    parser.add_argument(
+        '--go-explore',
+        action='store_true',
+        default=False,
+        help='use go-explore')
     parser.add_argument(
         '--use-linear-lr-decay',
         action='store_true',
-        default=False,
+        default=True,
         help='use a linear schedule on the learning rate')
+
     args = parser.parse_args()
 
     args.cuda = not args.no_cuda and torch.cuda.is_available()
