@@ -48,7 +48,7 @@ def get_args():
     parser.add_argument(
         '--gae-lambda',
         type=float,
-        default=0.90,
+        default=0.80,
         help='gae lambda parameter (default: 0.95)')
     parser.add_argument(
         '--entropy-coef',
@@ -100,7 +100,7 @@ def get_args():
     parser.add_argument(
         '--num-mini-batch',
         type=int,
-        default=32,
+        default=64,
         help='number of batches for ppo (default: 32)')
     parser.add_argument(
         '--clip-param',
