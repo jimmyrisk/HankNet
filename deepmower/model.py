@@ -6,6 +6,8 @@ import torch.nn.functional as F
 from a2c_ppo_acktr.distributions import Bernoulli, Categorical, DiagGaussian
 from a2c_ppo_acktr.utils import init
 
+from utils import get_dim
+
 
 class Flatten(nn.Module):
     def forward(self, x):
@@ -231,9 +233,14 @@ class MLPBase(NNBase):
 
 
 class HybridBase(NNBase):
-    def __init__(self, num_inputs, recurrent=False, hidden_size=512, hidden_num=512):
-        super(HybridBase, self).__init__(recurrent, hidden_size, hidden_num)
+    def __init__(self, num_inputs, depth_dim = 8, recurrent=False, hidden_size=32, hidden_num=32,
+                 kernel_size = (3,3),
+                 stride = (1,1),
+                 padding = (0,0),
+                 dilation = (1,1)):
+        super(HybridBase, self).__init__(recurrent, recurrent_input_size=hidden_size, hidden_size=hidden_size)
 
+        self.depth_dim = depth_dim
         # if recurrent:
         #     num_inputs = hidden_size
 
@@ -241,13 +248,22 @@ class HybridBase(NNBase):
                                constant_(x, 0), nn.init.calculate_gain('relu'))
 
 
+        # h_in = [13]
+        # h_out = [32]
+        #
+        # h_in.append((h_in[-1] + 2*padding - dilation * (kernel_size - 1) - 1) / stride + 1)
+        # h_out.append((h_out[-1] + 2 * padding - dilation * (kernel_size - 1) - 1) / stride + 1)
+        # h_in.append((h_in[-1] + 2*padding - dilation * (kernel_size - 1) - 1) / stride + 1)
+        # h_out.append((h_out[-1] + 2 * padding - dilation * (kernel_size - 1) - 1) / stride + 1)
 
         self.main = nn.Sequential(
-            init_cnn_(nn.Conv2d(in_channels=8, out_channels=8, kernel_size=(3, 3))), nn.ReLU(),
-            init_cnn_(nn.Conv2d(in_channels=8, out_channels=8, kernel_size=(3, 3))), nn.ReLU(),
+            # init_cnn_(nn.Conv2d(in_channels=depth_dim, out_channels=depth_dim, kernel_size=(3, 3))), nn.ReLU(),
+            # init_cnn_(nn.Conv2d(in_channels=depth_dim, out_channels=depth_dim, kernel_size=(3, 3))), nn.ReLU(),
+            init_cnn_(nn.Conv2d(in_channels=depth_dim, out_channels=2*depth_dim,stride = (2,2), kernel_size = (5,8), padding=(2,1))), nn.ReLU(),
+            init_cnn_(nn.Conv2d(in_channels=2*depth_dim, out_channels=4*depth_dim,stride = (1,1), kernel_size = (3,5), padding=(1,1))), nn.ReLU(),
             #init_(nn.Conv2d(64, 32, 3, stride=1)), nn.ReLU(),
             Flatten(),
-            init_cnn_(nn.Linear(8 * 9 * 28, hidden_size)), nn.ReLU())
+            init_cnn_(nn.Linear(2016, hidden_size)), nn.ReLU())
 
         # if recurrent:
         #     num_inputs = hidden_size
@@ -256,7 +272,7 @@ class HybridBase(NNBase):
                                constant_(x, 0), np.sqrt(2))
 
         self.combined_hidden_1 = nn.Sequential(
-            init_(nn.Linear(num_inputs+hidden_size, hidden_num)), nn.Tanh()
+            init_(nn.Linear(num_inputs+hidden_size, hidden_size)), nn.Tanh()
         )
 
         self.actor_hidden = nn.Sequential(
@@ -286,6 +302,9 @@ class HybridBase(NNBase):
             inputs = inputs[None, :]
             inputs_num = inputs_num[None, :]
             rnn_hxs = rnn_hxs[None, :]
+        if self.depth_dim == 6:
+            # in the case of not using rock / flower
+            inputs = inputs[:, [0, 3, 4, 5, 6, 7], :, :]
         x = self.main(inputs)
 
 

@@ -442,3 +442,15 @@ class EpisodeLogger:
         pass
 
 
+
+
+def get_dim(padding=(0,0), dilation=(1,1), kernel_size=(3,3), stride=(1,1)):
+    h_in = [13]
+    h_out = [32]
+
+    h_in.append((h_in[-1] + 2*padding[0] - dilation[0] * (kernel_size[0] - 1) - 1) / stride[0] + 1)
+    h_out.append((h_out[-1] + 2 * padding[1] - dilation[1] * (kernel_size[1] - 1) - 1) / stride[1] + 1)
+    h_in.append((h_in[-1] + 2*padding[0] - dilation[0] * (kernel_size[0] - 1) - 1) / stride[0] + 1)
+    h_out.append((h_out[-1] + 2 * padding[1] - dilation[1] * (kernel_size[1] - 1) - 1) / stride[1] + 1)
+
+    return h_in, h_out

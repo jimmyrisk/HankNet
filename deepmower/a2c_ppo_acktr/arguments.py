@@ -41,6 +41,21 @@ def get_args():
         default=0.999,
         help='discount factor for rewards (default: 0.99)')
     parser.add_argument(
+        '--depth-dim',
+        type=int,
+        default=6,
+        help='6 or 8 depending on if use rock/flowers (8) or not (6)')
+    parser.add_argument(
+        '--hidden-size',
+        type=int,
+        default=32,
+        help='number of hidden units that are grid related')
+    parser.add_argument(
+        '--hidden-num',
+        type=int,
+        default=32,
+        help='number of hidden units that are numerical related')
+    parser.add_argument(
         '--use-gae',
         action='store_true',
         default=True,

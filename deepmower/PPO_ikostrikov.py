@@ -107,6 +107,7 @@ class PPO():
                 action_loss_epoch += action_loss.item()
                 dist_entropy_epoch += dist_entropy.item()
 
+        #print(sum(p.numel() for p in self.actor_critic.parameters()))
 
         num_updates = self.ppo_epoch * self.num_mini_batch
 

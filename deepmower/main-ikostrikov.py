@@ -40,9 +40,15 @@ input_dims = 17
 
 args = get_args()
 
+# args.run_id = 1000
+# args.lawn_num = 21
+#
+
 
 run_id = args.run_id
 lawn_num = args.lawn_num
+
+
 
 
 
@@ -54,8 +60,6 @@ env_name = f"lawn{lawn_num}"
 
 
 print(f"Beginning run on Lawn {lawn_num}.  Run ID: {run_id}.  Random Seed: {random_seed}")
-
-
 
 
 
@@ -89,13 +93,17 @@ def main():
 
     env = test_game_base.test_game(lawn_num, args.reward_type, no_print=True)
 
-    print(env.state.shape)
 
     actor_critic = Policy(
         input_dims,
         n_actions,
-        base_kwargs={'recurrent': args.recurrent_policy})
+        base_kwargs={'recurrent': args.recurrent_policy,
+                     'depth_dim': args.depth_dim,
+                     'hidden_size': args.hidden_size,
+                     'hidden_num': args.hidden_num})
     actor_critic.to(device)
+
+    print(f'-- Number of hyperparameters: {sum(p.numel() for p in actor_critic.parameters())}')
 
 
     agent = PPO(
