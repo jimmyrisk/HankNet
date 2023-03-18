@@ -38,7 +38,7 @@ def get_args():
     parser.add_argument(
         '--gamma',
         type=float,
-        default=0.999,
+        default=0.9999,
         help='discount factor for rewards (default: 0.99)')
     parser.add_argument(
         '--depth-dim',
@@ -63,7 +63,7 @@ def get_args():
     parser.add_argument(
         '--gae-lambda',
         type=float,
-        default=0.80,
+        default=0.90,
         help='gae lambda parameter (default: 0.95)')
     parser.add_argument(
         '--entropy-coef',
@@ -171,12 +171,12 @@ def get_args():
         help='disables CUDA training')
     parser.add_argument(
         '--use-proper-time-limits',
-        action='store_true',
+        action='store_false',
         default=True,
         help='compute returns taking into account time limits')
     parser.add_argument(
         '--recurrent-policy',
-        action='store_true',
+        action='store_false',
         default=True,
         help='use a recurrent policy')
     parser.add_argument(
@@ -186,7 +186,7 @@ def get_args():
         help='use go-explore')
     parser.add_argument(
         '--use-linear-lr-decay',
-        action='store_true',
+        action='store_false',
         default=True,
         help='use a linear schedule on the learning rate')
 
