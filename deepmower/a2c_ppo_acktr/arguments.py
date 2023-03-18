@@ -48,7 +48,7 @@ def get_args():
     parser.add_argument(
         '--hidden-size',
         type=int,
-        default=32,
+        default=16,
         help='number of hidden units that are grid related')
     parser.add_argument(
         '--hidden-num',
