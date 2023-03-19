@@ -6,7 +6,11 @@ import torch.nn.functional as F
 from a2c_ppo_acktr.distributions import Bernoulli, Categorical, DiagGaussian
 from a2c_ppo_acktr.utils import init
 
+
+
 from utils import get_dim
+
+
 
 
 class Flatten(nn.Module):
@@ -50,14 +54,15 @@ class Policy(nn.Module):
     def forward(self, inputs, rnn_hxs, masks):
         raise NotImplementedError
 
-    def act(self, inputs, inputs_num, rnn_hxs, masks, deterministic=False):
+    def act(self, inputs, inputs_num, rnn_hxs, masks, deterministic=False, action = None):
         value, actor_features, rnn_hxs = self.base(inputs, inputs_num, rnn_hxs, masks)
         dist = self.dist(actor_features)
 
-        if deterministic:
-            action = dist.mode()
-        else:
-            action = dist.sample()
+        if action == None:
+            if deterministic:
+                action = dist.mode()
+            else:
+                action = dist.sample()
 
         action_log_probs = dist.log_probs(action)
         dist_entropy = dist.entropy().mean()

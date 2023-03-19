@@ -11,7 +11,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-from utils import plot_learning_curve
+#from utils import plot_learning_curve
 
 import test_game_base
 
@@ -26,6 +26,8 @@ from model import Policy
 from storage import RolloutStorage
 from evaluation import evaluate
 
+from pca import get_go_paths
+
 
 from datetime import datetime
 
@@ -39,10 +41,15 @@ input_dims = 17
 
 
 args = get_args()
-
-# args.run_id = 1000
+#
+# args.run_id = 10001
 # args.lawn_num = 21
 #
+# args.go_explore_frequency = 16
+#
+#
+# args.go_explore = True
+
 
 
 run_id = args.run_id
@@ -199,6 +206,10 @@ def main():
     episode_values = []
     episode_actions = []
 
+    if args.go_explore is True:
+        go_queue = []
+    go_path = []
+
     start = time.time()
     num_updates = int(
         args.num_env_steps) // args.num_steps
@@ -214,13 +225,35 @@ def main():
                 agent.optimizer.lr if args.algo == "acktr" else args.lr)
 
         for step in range(args.num_steps):
-            # Sample actions
             with torch.no_grad():
-                value, action, action_log_prob, recurrent_hidden_states = actor_critic.act(
-                    rollouts.obs[step],
-                    rollouts.obs_num[step],
-                    rollouts.recurrent_hidden_states[step],
-                    rollouts.masks[step])
+                if len(go_path) == 0 and env.frames == 0:
+                    if len(go_queue) > 0:  # only exists if args.go_explore is True
+                        go_path = go_queue.pop(0)
+                    elif run_num > 0 and run_num % args.go_explore_frequency == 0:# and args.go_explore is True:
+                        go_queue = get_go_paths(logger.filename)
+                        go_path = go_queue.pop(0)
+                        pass
+                    else:
+                        # do runs as normal
+                        pass
+
+
+                if len(go_path) > 0:
+                    # Using go_explore
+                    action = torch.tensor([[go_path.pop(0)]]).to(device)
+                    value, action, action_log_prob, recurrent_hidden_states = actor_critic.act(
+                        rollouts.obs[step],
+                        rollouts.obs_num[step],
+                        rollouts.recurrent_hidden_states[step],
+                        rollouts.masks[step], action = action)
+
+                else:
+                    # Sample actions
+                    value, action, action_log_prob, recurrent_hidden_states = actor_critic.act(
+                        rollouts.obs[step],
+                        rollouts.obs_num[step],
+                        rollouts.recurrent_hidden_states[step],
+                        rollouts.masks[step])
 
 
 
@@ -263,7 +296,7 @@ def main():
             #     [[0.0] if done_ else [0.0] for done_ in done])
             if done is True:
                 masks = torch.tensor(0.0)
-                bad_masks = torch.tensor(0.0)
+                bad_masks = torch.tensor(1.0)  # bad_masks is 0 only if there is a forced end run
 
                 logger.write(score, run_num)
                 episode_rewards.append(score)
@@ -278,7 +311,7 @@ def main():
 
             else:
                 masks = torch.tensor(1.0)
-                bad_masks = torch.tensor(1.0)
+                bad_masks = torch.tensor(1.0)  # bad_masks is 0 only if there is a forced end run
             # bad_masks = torch.FloatTensor(
             #     [[0.0] if 'bad_transition' in info.keys() else [1.0]
             #      for info in infos])
@@ -357,17 +390,17 @@ def main():
                             action_loss))
             x = [i + 1 for i in range(len(episode_rewards))]
 
-            if len(episode_rewards) > 100:
-                plot_learning_curve(j, x, episode_rewards,
-                                    episode_perc_dones,
-                                    episode_total_losses,
-                                    episode_entropies,
-                                    episode_values,
-                                    episode_actions,
-                                    log_p1_name,
-                                    log_p2_name,
-                                    lawn_num,
-                                    run_id)
+            # if len(episode_rewards) > 100:
+            #     plot_learning_curve(j, x, episode_rewards,
+            #                         episode_perc_dones,
+            #                         episode_total_losses,
+            #                         episode_entropies,
+            #                         episode_values,
+            #                         episode_actions,
+            #                         log_p1_name,
+            #                         log_p2_name,
+            #                         lawn_num,
+            #                         run_id)
 
         if (args.eval_interval is not None and len(episode_rewards) > 1
                 and j % args.eval_interval == 0):

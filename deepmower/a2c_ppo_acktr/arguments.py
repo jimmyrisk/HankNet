@@ -185,6 +185,11 @@ def get_args():
         default=False,
         help='use go-explore')
     parser.add_argument(
+        '--go-explore-frequency',
+        type=int,
+        default=32,
+        help='number of runs completed before a go-explore insertion is performed')
+    parser.add_argument(
         '--use-linear-lr-decay',
         action='store_false',
         default=True,
