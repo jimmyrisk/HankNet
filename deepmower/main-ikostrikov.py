@@ -226,10 +226,10 @@ def main():
 
         for step in range(args.num_steps):
             with torch.no_grad():
-                if len(go_path) == 0 and env.frames == 0:
-                    if len(go_queue) > 0:  # only exists if args.go_explore is True
+                if len(go_path) == 0 and env.frames == 0 and args.go_explore is True:
+                    if len(go_queue) > 0:
                         go_path = go_queue.pop(0)
-                    elif run_num > 0 and run_num % args.go_explore_frequency == 0:# and args.go_explore is True:
+                    elif run_num > 0 and run_num % args.go_explore_frequency == 0:
                         go_queue = get_go_paths(logger.filename)
                         go_path = go_queue.pop(0)
                         pass
