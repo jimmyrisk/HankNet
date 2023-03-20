@@ -53,7 +53,7 @@ def get_go_paths(log_f_name = None):
     pca = PCA(n_components=4)
 
     #fit PCA model to data
-    pca_fit = pca.fit(scaled_df)
+    pca.fit(scaled_df)
 
 
 

@@ -41,7 +41,7 @@ input_dims = 17
 
 args = get_args()
 #
-# args.run_id = 1000009
+# args.run_id = 10000021
 # args.lawn_num = 21
 #
 # args.go_explore_frequency = 16
@@ -236,7 +236,6 @@ def main():
                     elif run_num > 0 and run_num % args.go_explore_frequency == 0:
                         go_queue = get_go_paths(logger.filename)
                         go_path = go_queue.pop(0)
-                        pass
                     else:
                         # do runs as normal
                         pass
@@ -244,6 +243,8 @@ def main():
 
                 while len(go_path) > 0:
                     # Using go_explore
+
+
                     with torch.no_grad():
                         action = torch.tensor([[go_path.pop(0)]]).to(device)
                         value, action, action_log_prob, recurrent_hidden_states = actor_critic.act(
@@ -269,8 +270,14 @@ def main():
                     if len(go_path) == 0:
                         masks = torch.FloatTensor([1.0])
                         bad_masks = torch.FloatTensor([1.0])
-                        rollouts.insert(obs, obs_num, recurrent_hidden_states, action,
-                                        action_log_prob, value, reward, masks, bad_masks)
+                        # TODO: hacky.  fix!
+                        rollouts.obs[step] = obs
+                        rollouts.obs_num[step] = obs_num
+                        rollouts.recurrent_hidden_states[step] = recurrent_hidden_states
+                        rollouts.masks[step] = masks
+                        rollouts.bad_masks[step] = bad_masks
+                        # rollouts.insert(obs, obs_num, recurrent_hidden_states, action,
+                        #                 action_log_prob, value, reward, masks, bad_masks)
 
                 value, action, action_log_prob, recurrent_hidden_states = actor_critic.act(
                     rollouts.obs[step],
@@ -340,6 +347,7 @@ def main():
 
             rollouts.insert(obs, obs_num, recurrent_hidden_states, action,
                             action_log_prob, value, reward, masks, bad_masks)
+
 
         with torch.no_grad():
             next_value = actor_critic.get_value(
