@@ -4,6 +4,7 @@ class logger:
     def __init__(self, run_id, env, path = "results/", ):
         self.actions = []
         self.rewards = []
+        self.copied = []
         self.done = 0
         self.score = 0
         self.fuel = 0
@@ -17,7 +18,7 @@ class logger:
             wr = csv.writer(csv_output)
             row = ["Run", "Path", "Rewards", "Score", "Fuel_Score", "Grass_Score", "Num_Fuel_Obtained",
                    "Amt_Fuel_Obtained", "End_Fuel", "Frames", "End_x", "End_y", "Perc_done", "Frames_Since_Fuel",
-                   "Momentum Lost"]
+                   "Momentum Lost", "Go_Explore_Copied"]
             wr.writerow(row)
             csv_output.close()
 
@@ -33,9 +34,10 @@ class logger:
             wr.writerow(row)
             csv_output.close()
 
-    def log(self, action, reward):
+    def log(self, action, reward, copied):
         self.actions.append(action)
         self.rewards.append(reward)
+        self.copied.append(copied)
 
     def write(self, score, run_num = 0):
         with open(self.filename, mode='a', newline='') as csv_output:
@@ -52,12 +54,14 @@ class logger:
                    self.env.player_coord[1].item(),
                    self.env.perc_done,
                    self.env.frames_since_fuel,
-                   self.env.momentum_lost
+                   self.env.momentum_lost,
+                   self.copied
                    ]
             wr.writerow(row)
             csv_output.close()
         self.actions = []
         self.rewards = []
+        self.copied = []
         self.score = 0
         self.fuel = 0
 

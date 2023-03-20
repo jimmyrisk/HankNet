@@ -11,11 +11,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-
-
-#from utils import plot_learning_curve
-
 import test_game_base
+
 
 from PPO_ikostrikov import PPO
 from a2c_ppo_acktr import utils
@@ -42,15 +39,15 @@ input_dims = 17
 # SIL/hypers stuff: https://arxiv.org/pdf/2004.12919.pdf p31
 
 
-args = get_args()
-
-args.run_id = 1000006
-args.lawn_num = 21
-
-args.go_explore_frequency = 16
-
-
-args.go_explore = True
+# args = get_args()
+#
+# args.run_id = 1000009
+# args.lawn_num = 21
+#
+# args.go_explore_frequency = 16
+#
+#
+# args.go_explore = True
 
 
 
@@ -246,7 +243,6 @@ def main():
 
 
                 while len(go_path) > 0:
-                    print(f"step: {step}, path length: {len(go_path)}")
                     # Using go_explore
                     with torch.no_grad():
                         action = torch.tensor([[go_path.pop(0)]]).to(device)
@@ -258,6 +254,17 @@ def main():
                             action = action)
                         obs, obs_num, reward, done, infos = env.step(action)
                         obs = obs.permute(2, 0, 1)  # oops, needed to change order
+
+                        logger.log(action.item(), reward, 1)
+                        score += reward
+                        time_step += 1
+                        current_ep_reward += reward
+
+                        print_running_reward += current_ep_reward
+                        print_running_episodes += 1
+
+                        log_running_reward += current_ep_reward
+                        log_running_episodes += 1
 
                     if len(go_path) == 0:
                         masks = torch.FloatTensor([1.0])
@@ -276,7 +283,7 @@ def main():
             obs = obs.permute(2, 0, 1)  # oops, needed to change order
 
             with torch.no_grad():
-                logger.log(action.item(), reward)
+                logger.log(action.item(), reward, 0)
                 score += reward
             time_step +=1
             current_ep_reward += reward

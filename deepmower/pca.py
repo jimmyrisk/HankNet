@@ -76,9 +76,14 @@ def get_go_paths(log_f_name = None):
         path = path_.strip('][').split(', ')
         path = list(map(int,path))
         path_length = len(path)
-        end_idx = int(np.random.triangular(left = int(0.1*path_length),
-                                       right = int(0.9*path_length),
-                                       mode = int(0.7*path_length)))
-        go_paths.append(path[:end_idx])
+        try:
+            end_idx = int(np.random.triangular(left = int(0.1*path_length),
+                                           right = int(0.9*path_length),
+                                           mode = int(0.7*path_length)))
+            go_paths.append(path[:end_idx])
+        except:
+            print(f"-- warning -- skipping path.  path length = {len(path)}.  path:")
+            print(path)
+            print(f"-------------")
 
     return go_paths
