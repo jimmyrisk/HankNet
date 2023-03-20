@@ -40,13 +40,10 @@ input_dims = 17
 
 
 args = get_args()
-#
-# args.run_id = 10000021
+
+# args.run_id = 10000023
 # args.lawn_num = 21
-#
 # args.go_explore_frequency = 16
-#
-#
 # args.go_explore = True
 
 
@@ -241,44 +238,45 @@ def main():
                         pass
 
 
-                while len(go_path) > 0:
-                    # Using go_explore
+            while len(go_path) > 0:
+                # Using go_explore
 
 
-                    with torch.no_grad():
-                        action = torch.tensor([[go_path.pop(0)]]).to(device)
-                        value, action, action_log_prob, recurrent_hidden_states = actor_critic.act(
-                            obs.to(device),
-                            obs_num.to(device).float(),
-                            recurrent_hidden_states,  # I THINK this is irrelevant (maybe not)
-                            torch.FloatTensor([1.0]).to(device),  # done should never appear with go-explore
-                            action = action)
-                        obs, obs_num, reward, done, infos = env.step(action)
-                        obs = obs.permute(2, 0, 1)  # oops, needed to change order
+                with torch.no_grad():
+                    action = torch.tensor([[go_path.pop(0)]]).to(device)
+                    value, action, action_log_prob, recurrent_hidden_states = actor_critic.act(
+                        obs.to(device),
+                        obs_num.to(device).float(),
+                        recurrent_hidden_states,  # I THINK this is irrelevant (maybe not)
+                        torch.FloatTensor([1.0]).to(device),  # done should never appear with go-explore
+                        action = action)
+                    obs, obs_num, reward, done, infos = env.step(action)
+                    obs = obs.permute(2, 0, 1)  # oops, needed to change order
 
-                        logger.log(action.item(), reward, 1)
-                        score += reward
-                        time_step += 1
-                        current_ep_reward += reward
+                    logger.log(action.item(), reward, 1)
+                    score += reward
+                    time_step += 1
+                    current_ep_reward += reward
 
-                        print_running_reward += current_ep_reward
-                        print_running_episodes += 1
+                    print_running_reward += current_ep_reward
+                    print_running_episodes += 1
 
-                        log_running_reward += current_ep_reward
-                        log_running_episodes += 1
+                    log_running_reward += current_ep_reward
+                    log_running_episodes += 1
 
-                    if len(go_path) == 0:
-                        masks = torch.FloatTensor([1.0])
-                        bad_masks = torch.FloatTensor([1.0])
-                        # TODO: hacky.  fix!
-                        rollouts.obs[step] = obs
-                        rollouts.obs_num[step] = obs_num
-                        rollouts.recurrent_hidden_states[step] = recurrent_hidden_states
-                        rollouts.masks[step] = masks
-                        rollouts.bad_masks[step] = bad_masks
-                        # rollouts.insert(obs, obs_num, recurrent_hidden_states, action,
-                        #                 action_log_prob, value, reward, masks, bad_masks)
+                if len(go_path) == 0:
+                    masks = torch.FloatTensor([1.0])
+                    bad_masks = torch.FloatTensor([1.0])
+                    # # TODO: hacky.  fix!
+                    # rollouts.obs[step] = obs
+                    # rollouts.obs_num[step] = obs_num
+                    # rollouts.recurrent_hidden_states[step] = recurrent_hidden_states
+                    # rollouts.masks[step] = masks
+                    # rollouts.bad_masks[step] = bad_masks
+                    rollouts.insert(obs, obs_num, recurrent_hidden_states, action,
+                                    action_log_prob, value, reward, masks, bad_masks)
 
+            with torch.no_grad():
                 value, action, action_log_prob, recurrent_hidden_states = actor_critic.act(
                     rollouts.obs[step],
                     rollouts.obs_num[step],
