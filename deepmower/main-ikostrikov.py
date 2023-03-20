@@ -11,6 +11,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
+
+
 #from utils import plot_learning_curve
 
 import test_game_base
@@ -41,14 +43,17 @@ input_dims = 17
 
 
 args = get_args()
-#
-# args.run_id = 10001
-# args.lawn_num = 21
-#
-# args.go_explore_frequency = 16
-#
-#
-# args.go_explore = True
+
+args.run_id = 1000006
+args.lawn_num = 21
+
+args.go_explore_frequency = 16
+
+
+args.go_explore = True
+
+
+
 
 
 
@@ -224,7 +229,9 @@ def main():
                 agent.optimizer, j, num_updates,
                 agent.optimizer.lr if args.algo == "acktr" else args.lr)
 
+
         for step in range(args.num_steps):
+
             with torch.no_grad():
                 if len(go_path) == 0 and env.frames == 0 and args.go_explore is True:
                     if len(go_queue) > 0:
@@ -238,24 +245,31 @@ def main():
                         pass
 
 
-                if len(go_path) > 0:
+                while len(go_path) > 0:
+                    print(f"step: {step}, path length: {len(go_path)}")
                     # Using go_explore
-                    action = torch.tensor([[go_path.pop(0)]]).to(device)
-                    value, action, action_log_prob, recurrent_hidden_states = actor_critic.act(
-                        rollouts.obs[step],
-                        rollouts.obs_num[step],
-                        rollouts.recurrent_hidden_states[step],
-                        rollouts.masks[step], action = action)
+                    with torch.no_grad():
+                        action = torch.tensor([[go_path.pop(0)]]).to(device)
+                        value, action, action_log_prob, recurrent_hidden_states = actor_critic.act(
+                            obs.to(device),
+                            obs_num.to(device).float(),
+                            recurrent_hidden_states,  # I THINK this is irrelevant (maybe not)
+                            torch.FloatTensor([1.0]).to(device),  # done should never appear with go-explore
+                            action = action)
+                        obs, obs_num, reward, done, infos = env.step(action)
+                        obs = obs.permute(2, 0, 1)  # oops, needed to change order
 
-                else:
-                    # Sample actions
-                    value, action, action_log_prob, recurrent_hidden_states = actor_critic.act(
-                        rollouts.obs[step],
-                        rollouts.obs_num[step],
-                        rollouts.recurrent_hidden_states[step],
-                        rollouts.masks[step])
+                    if len(go_path) == 0:
+                        masks = torch.FloatTensor([1.0])
+                        bad_masks = torch.FloatTensor([1.0])
+                        rollouts.insert(obs, obs_num, recurrent_hidden_states, action,
+                                        action_log_prob, value, reward, masks, bad_masks)
 
-
+                value, action, action_log_prob, recurrent_hidden_states = actor_critic.act(
+                    rollouts.obs[step],
+                    rollouts.obs_num[step],
+                    rollouts.recurrent_hidden_states[step],
+                    rollouts.masks[step])
 
             # Obser reward and next obs
             obs, obs_num, reward, done, infos = env.step(action)
@@ -295,8 +309,8 @@ def main():
             # bad_masks = torch.FloatTensor(
             #     [[0.0] if done_ else [0.0] for done_ in done])
             if done is True:
-                masks = torch.tensor(0.0)
-                bad_masks = torch.tensor(1.0)  # bad_masks is 0 only if there is a forced end run
+                masks = torch.FloatTensor([0.0])
+                bad_masks = torch.FloatTensor([1.0])  # bad_masks is 0 only if there is a forced end run
 
                 logger.write(score, run_num)
                 episode_rewards.append(score)
@@ -310,11 +324,13 @@ def main():
                 run_num += 1
 
             else:
-                masks = torch.tensor(1.0)
-                bad_masks = torch.tensor(1.0)  # bad_masks is 0 only if there is a forced end run
+                masks = torch.FloatTensor([1.0])
+                bad_masks = torch.FloatTensor([1.0])  # bad_masks is 0 only if there is a forced end run
             # bad_masks = torch.FloatTensor(
             #     [[0.0] if 'bad_transition' in info.keys() else [1.0]
             #      for info in infos])
+
+
             rollouts.insert(obs, obs_num, recurrent_hidden_states, action,
                             action_log_prob, value, reward, masks, bad_masks)
 

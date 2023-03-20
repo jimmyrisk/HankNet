@@ -9,7 +9,7 @@ import warnings
 def csv_to_tensor(lawn_name):
     if isinstance(lawn_name, int):
         lawn_name = "lawn" + str(lawn_name)
-    state = torch.zeros(13,32,8).double()
+    state = torch.zeros(13,32,8)
     with open('test_game/lawns/' + lawn_name + ".csv", newline='') as csvfile:
         spamreader = csv.reader(csvfile, delimiter=',', quotechar='|')
         i = 0
