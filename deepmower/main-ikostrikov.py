@@ -61,7 +61,7 @@ lawn_num = args.lawn_num
 
 random_seed = lawn_num + run_id + lawn_num * run_id        # set random seed if required (0 = no random seed)
 args.seed = random_seed
-
+np.random.seed(random_seed)
 
 env_name = f"lawn{lawn_num}"
 
