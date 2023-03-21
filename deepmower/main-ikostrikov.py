@@ -41,10 +41,11 @@ input_dims = 17
 
 args = get_args()
 
-# args.run_id = 10000023
+# args.run_id = 10000025
 # args.lawn_num = 21
 # args.go_explore_frequency = 16
 # args.go_explore = True
+# args.reward_type = 3
 
 
 
@@ -285,6 +286,7 @@ def main():
 
             # Obser reward and next obs
             obs, obs_num, reward, done, infos = env.step(action)
+
             obs = obs.permute(2, 0, 1)  # oops, needed to change order
 
             with torch.no_grad():
@@ -332,6 +334,10 @@ def main():
                 score = 0
 
                 env.reset()
+
+                obs = env.state
+                obs = obs.permute(2, 0, 1)  # oops, needed to change order
+                obs_num = env.state_numericals
 
                 run_num += 1
 
