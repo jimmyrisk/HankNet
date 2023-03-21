@@ -55,12 +55,13 @@ args = get_args()
 run_id = args.run_id
 lawn_num = args.lawn_num
 
+if args.seed == 1:
+    random_seed = lawn_num + run_id + lawn_num * run_id        # set random seed if required (0 = no random seed)
+    args.seed = random_seed
+else:
+    random_seed = args.seed
 
 
-
-
-random_seed = lawn_num + run_id + lawn_num * run_id        # set random seed if required (0 = no random seed)
-args.seed = random_seed
 np.random.seed(random_seed)
 
 env_name = f"lawn{lawn_num}"
