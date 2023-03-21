@@ -41,7 +41,7 @@ input_dims = 17
 
 args = get_args()
 
-# args.run_id = 10000025
+# args.run_id = 10000028
 # args.lawn_num = 21
 # args.go_explore_frequency = 16
 # args.go_explore = True
@@ -249,7 +249,7 @@ def main():
                         obs.to(device),
                         obs_num.to(device).float(),
                         recurrent_hidden_states,  # I THINK this is irrelevant (maybe not)
-                        torch.FloatTensor([1.0]).to(device),  # done should never appear with go-explore
+                        torch.FloatTensor([1.0]).to(device),
                         action = action)
                     obs, obs_num, reward, done, infos = env.step(action)
                     obs = obs.permute(2, 0, 1)  # oops, needed to change order
@@ -266,16 +266,16 @@ def main():
                     log_running_episodes += 1
 
                 if len(go_path) == 0:
-                    masks = torch.FloatTensor([1.0])
+                    masks = torch.FloatTensor([0.0])  # this masks the inserted observation from being rewarded
                     bad_masks = torch.FloatTensor([1.0])
                     # # TODO: hacky.  fix!
-                    # rollouts.obs[step] = obs
-                    # rollouts.obs_num[step] = obs_num
-                    # rollouts.recurrent_hidden_states[step] = recurrent_hidden_states
-                    # rollouts.masks[step] = masks
-                    # rollouts.bad_masks[step] = bad_masks
-                    rollouts.insert(obs, obs_num, recurrent_hidden_states, action,
-                                    action_log_prob, value, reward, masks, bad_masks)
+                    rollouts.obs[step] = obs
+                    rollouts.obs_num[step] = obs_num
+                    rollouts.recurrent_hidden_states[step] = recurrent_hidden_states
+                    rollouts.masks[step] = masks
+                    rollouts.bad_masks[step] = bad_masks
+                    # rollouts.insert(obs, obs_num, recurrent_hidden_states, action,
+                    #                 action_log_prob, value, reward, masks, bad_masks)
 
             with torch.no_grad():
                 value, action, action_log_prob, recurrent_hidden_states = actor_critic.act(
@@ -334,6 +334,8 @@ def main():
                 score = 0
 
                 env.reset()
+
+                insert_step = rollouts.step + 1
 
                 obs = env.state
                 obs = obs.permute(2, 0, 1)  # oops, needed to change order
