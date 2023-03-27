@@ -343,7 +343,7 @@ class test_game:
             if self.reward_type == 1:
                 pass
             else:
-                reward -= 400
+                reward -= 200
 
         self.state[coord[0], coord[1], 3] = 0.0
         self.state[new_coord[0], new_coord[1], 3] = 1.0
