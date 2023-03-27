@@ -38,7 +38,7 @@ def get_go_paths(log_f_name = None, n_pca = None, n_pcs = 6):
 
     run_df = run_df[['Score', 'Fuel_Score', 'Grass_Score',
            'Num_Fuel_Obtained', 'Amt_Fuel_Obtained', 'End_Fuel', 'Frames', 'End_x',
-           'End_y', 'Perc_done', 'Frames_Since_Fuel', 'Momentum Lost']]
+           'End_y', 'Perc_done', 'Frames_Since_Fuel', 'Fuel_Manhattan', 'Momentum Lost']]
 
     if n_pca is not None:
         run_df = run_df.tail(n_pca)
