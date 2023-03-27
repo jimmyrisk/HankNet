@@ -16,7 +16,7 @@ def drop_constant_column(dataframe):
 
 #%%
 
-def get_go_paths(log_f_name = None):
+def get_go_paths(log_f_name = None, n_pca = None, n_pcs = 6):
     if log_f_name == None:
         go_explore = False
         reward_type = 1
@@ -40,6 +40,8 @@ def get_go_paths(log_f_name = None):
            'Num_Fuel_Obtained', 'Amt_Fuel_Obtained', 'End_Fuel', 'Frames', 'End_x',
            'End_y', 'Perc_done', 'Frames_Since_Fuel', 'Momentum Lost']]
 
+    if n_pca is not None:
+        run_df = run_df.tail(n_pca)
 
     run_df = drop_constant_column(run_df)
 
@@ -50,7 +52,7 @@ def get_go_paths(log_f_name = None):
 
 
     #define PCA model to use
-    pca = PCA(n_components=4)
+    pca = PCA(n_components=n_pcs)
 
     #fit PCA model to data
     pca.fit(scaled_df)
@@ -62,7 +64,7 @@ def get_go_paths(log_f_name = None):
 
     idxs = []
 
-    for i in range(4):
+    for i in range(n_pcs):
         idxs.append(pcs[i].argmax())
         idxs.append(pcs[i].argmin())
 

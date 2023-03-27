@@ -41,11 +41,13 @@ input_dims = 17
 
 args = get_args()
 
-# args.run_id = 10000028
-# args.lawn_num = 21
-# args.go_explore_frequency = 16
-# args.go_explore = True
-# args.reward_type = 3
+
+if args.debug_run is True:
+    args.run_id = 203
+    args.lawn_num = 22
+    args.go_explore_frequency = 16
+    args.go_explore = True
+    args.reward_type = 2
 
 
 
@@ -99,7 +101,7 @@ def main():
     #                 #device,
     #                 allow_early_resets = False)
 
-    env = test_game_base.test_game(lawn_num, args.reward_type, no_print=True)
+    env = test_game_base.test_game(lawn_num, args.reward_type, device = device, no_print=True)
 
 
     actor_critic = Policy(
@@ -233,7 +235,7 @@ def main():
                     if len(go_queue) > 0:
                         go_path = go_queue.pop(0)
                     elif run_num > 0 and run_num % args.go_explore_frequency == 0:
-                        go_queue = get_go_paths(logger.filename)
+                        go_queue = get_go_paths(logger.filename, args.n_pca, args.n_pcs)
                         go_path = go_queue.pop(0)
                     else:
                         # do runs as normal

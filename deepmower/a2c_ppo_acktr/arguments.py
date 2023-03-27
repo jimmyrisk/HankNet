@@ -190,10 +190,31 @@ def get_args():
         default=32,
         help='number of runs completed before a go-explore insertion is performed')
     parser.add_argument(
+        '--n_pca',
+        type=int,
+        default=2000,
+        help='number of past runs to perform pca over')
+    parser.add_argument(
+        '--n_pcs',
+        type=int,
+        default=6,
+        help='number of principle components to use')
+    parser.add_argument(
+        '--go-explore-frequency',
+        type=int,
+        default=32,
+        help='number of runs completed before a go-explore insertion is performed')
+    parser.add_argument(
         '--use-linear-lr-decay',
         action='store_false',
         default=True,
         help='use a linear schedule on the learning rate')
+    parser.add_argument(
+        '--debug_run',
+        action='store_false',
+        default=True,
+        help='should always be turned on (set false)')
+
 
     args = parser.parse_args()
 

@@ -63,7 +63,7 @@ from utils import memory_to_tensor, print_grid, cardinal_input, tracker, Episode
 # wrapper as in past work [1]
 
 class test_game:
-    def __init__(self, lawn, reward_type = 1, no_print = False):
+    def __init__(self, lawn, reward_type = 1, device = 'cpu', no_print = False, fuel_seed = 2147483647):
         self.lawn = lawn
         self.init_state = load_lawn.csv_to_tensor(self.lawn)
         #self.state = self.init_state
@@ -73,6 +73,10 @@ class test_game:
 
         self.flower_penalty = 10
         self.rock_penalty = 20
+
+        self.fuel_seed = fuel_seed
+        self.device = device
+        self.fuel_rng = torch.Generator(device=self.device)
 
 
 
@@ -120,6 +124,7 @@ class test_game:
         self.momentum_lost = 0
         self.dir = 1  # east
         self.fuel = 60
+        self.fuel_rng.manual_seed(self.fuel_seed)
         self.total_grass = self.state[:, :, 0].sum()
         self.mowed = torch.tensor([0])
         self.perc_done = np.round(self.mowed.item() / self.total_grass.item()*100,2)
@@ -147,7 +152,7 @@ class test_game:
         fuel_y = 13 - self.fuel_coord[0]
         fuel_x = 32 - self.fuel_coord[1]
 
-        fuel_manhattan = abs(player_x - fuel_x) + abs(player_y - fuel_y)
+        self.fuel_manhattan = abs(player_x - fuel_x) + abs(player_y - fuel_y)
 
         self.state_numericals = torch.tensor(
             [self.frames / 1000, self.fuel / 100, self.momentum / 4, self.perc_done / 100,
@@ -158,7 +163,7 @@ class test_game:
              player_y / 13,
              fuel_x / 32,
              fuel_y / 13,
-             fuel_manhattan / (32+13),
+             self.fuel_manhattan / (32+13),
              self.fuel_counter / 10
              ]
         )
@@ -288,7 +293,7 @@ class test_game:
 
             # set next fuel spawn
             fuel_choice_num = (self.state[:, :, 7] == 1.0).nonzero().size()[0]
-            fuel_choice_idx = torch.randperm(fuel_choice_num)[0]
+            fuel_choice_idx = torch.randperm(fuel_choice_num, generator = self.fuel_rng, device = self.device)[0]
             self.fuel_coord = (self.state[:, :, 7] == 1.0).nonzero()[fuel_choice_idx]
             self.state[self.fuel_coord[0], self.fuel_coord[1], 6] = 1.0
 
@@ -335,6 +340,7 @@ class test_game:
             if self.frames_since_fuel == 24:
                 self.state[self.fuel_coord[0], self.fuel_coord[1], 5] = 1.0
                 self.state[:, :, 6] = 0.0
+                self.no_fuel = 0
 
         #set fuel to 0
         if self.fuel <= 0:
@@ -363,7 +369,7 @@ class test_game:
         fuel_y = 13 - self.fuel_coord[0]
         fuel_x = 32 - self.fuel_coord[1]
 
-        fuel_manhattan = abs(player_x - fuel_x) + abs(player_y - fuel_y)
+        self.fuel_manhattan = abs(player_x - fuel_x) + abs(player_y - fuel_y)
 
 
         # print(f"player coord: [{player_x.item()}, {player_y.item()}")
@@ -379,7 +385,7 @@ class test_game:
              player_y / 13,
              fuel_x / 32,
              fuel_y / 13,
-             fuel_manhattan / (32+13),
+             self.fuel_manhattan / (32+13),
              self.fuel_counter / 10
              ]
         )

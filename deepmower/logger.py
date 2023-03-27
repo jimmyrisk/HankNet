@@ -18,7 +18,7 @@ class logger:
             wr = csv.writer(csv_output)
             row = ["Run", "Path", "Rewards", "Score", "Fuel_Score", "Grass_Score", "Num_Fuel_Obtained",
                    "Amt_Fuel_Obtained", "End_Fuel", "Frames", "End_x", "End_y", "Perc_done", "Frames_Since_Fuel",
-                   "Momentum Lost", "Go_Explore_Copied"]
+                   "Momentum Lost", "Fuel_Manhattan", "Go_Explore_Copied"]
             wr.writerow(row)
             csv_output.close()
 
@@ -55,6 +55,7 @@ class logger:
                    self.env.perc_done,
                    self.env.frames_since_fuel,
                    self.env.momentum_lost,
+                   self.env.fuel_manhattan.item(),
                    self.copied
                    ]
             wr.writerow(row)
