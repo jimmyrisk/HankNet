@@ -204,11 +204,6 @@ def get_args():
         action='store_false',
         default=True,
         help='use a linear schedule on the learning rate')
-    parser.add_argument(
-        '--debug_run',
-        action='store_false',
-        default=True,
-        help='should always be turned on (set false)')
 
 
     args = parser.parse_args()

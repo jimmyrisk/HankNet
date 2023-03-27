@@ -41,14 +41,14 @@ input_dims = 17
 
 args = get_args()
 
-
-if args.debug_run is True:
-    args.run_id = 203
-    args.lawn_num = 22
-    args.go_explore_frequency = 16
-    args.go_explore = True
-    args.reward_type = 2
-
+# args.debug_run = True
+# if args.debug_run is True:
+#     args.run_id = 203
+#     args.lawn_num = 22
+#     args.go_explore_frequency = 16
+#     args.go_explore = True
+#     args.reward_type = 2
+#
 
 
 
