@@ -197,7 +197,7 @@ def get_args():
     parser.add_argument(
         '--n_pcs',
         type=int,
-        default=6,
+        default=7,
         help='number of principle components to use')
     parser.add_argument(
         '--use-linear-lr-decay',
