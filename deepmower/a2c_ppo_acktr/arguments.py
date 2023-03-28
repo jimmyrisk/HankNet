@@ -190,12 +190,12 @@ def get_args():
         default=32,
         help='number of runs completed before a go-explore insertion is performed')
     parser.add_argument(
-        '--n_pca',
+        '--n-pca',
         type=int,
         default=2000,
         help='number of past runs to perform pca over')
     parser.add_argument(
-        '--n_pcs',
+        '--n-pcs',
         type=int,
         default=7,
         help='number of principle components to use')
