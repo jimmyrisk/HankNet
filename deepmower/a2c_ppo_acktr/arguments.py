@@ -56,6 +56,11 @@ def get_args():
         default=32,
         help='number of hidden units that are numerical related')
     parser.add_argument(
+        '--hidden-output',
+        type=int,
+        default=0,
+        help='number of hidden units in combined nodes (0 => hidden-size + hidden-num)')
+    parser.add_argument(
         '--use-gae',
         action='store_true',
         default=True,

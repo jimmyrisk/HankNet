@@ -43,12 +43,15 @@ args = get_args()
 
 # args.debug_run = True
 # if args.debug_run is True:
-#     args.run_id = 203
+#     args.run_id = 211
 #     args.lawn_num = 22
 #     args.go_explore_frequency = 16
 #     args.go_explore = True
 #     args.reward_type = 2
-#
+#     args.hidden_size = 16
+#     args.hidden_num = 32
+#     args.hidden_output = 24
+
 
 
 
@@ -89,20 +92,10 @@ def main():
     utils.cleanup_log_dir(log_dir)
     utils.cleanup_log_dir(eval_log_dir)
 
-
-
     torch.set_num_threads(1)
     device = torch.device("cuda:0" if args.cuda else "cpu")
 
-    # envs = make_env(args.env_name,
-    #                 args.seed,
-    #                 args.num_processes,
-    #                 args.log_dir,
-    #                 #device,
-    #                 allow_early_resets = False)
-
     env = test_game_base.test_game(lawn_num, args.reward_type, device = device, no_print=True)
-
 
     actor_critic = Policy(
         input_dims,
@@ -110,11 +103,11 @@ def main():
         base_kwargs={'recurrent': args.recurrent_policy,
                      'depth_dim': args.depth_dim,
                      'hidden_size': args.hidden_size,
-                     'hidden_num': args.hidden_num})
+                     'hidden_num': args.hidden_num,
+                     'hidden_output': args.hidden_output})
     actor_critic.to(device)
 
     print(f'-- Number of hyperparameters: {sum(p.numel() for p in actor_critic.parameters())}')
-
 
     agent = PPO(
         actor_critic,
@@ -128,22 +121,15 @@ def main():
         eps=args.eps,
         max_grad_norm=args.max_grad_norm)
 
-
-
     log_dir = "PPO_logs"
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
-
 
     sub_dir = 'go_explore_' + str(args.go_explore) + '/reward_function' + str(args.reward_type) + "/"
 
     log_dir = log_dir + '/' + env_name + '/' + sub_dir
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
-
-    #### get number of log files in log directory
-    current_num_files = next(os.walk(log_dir))[2]
-    #run_num = len(current_num_files)
 
     run_num = run_id
 
@@ -152,9 +138,6 @@ def main():
 
     #### create new log file for each run
     log_f_name = log_dir + '/PPO_' + env_name + "_log_" + str(run_num) + ".csv"''
-
-    log_p1_name = log_dir + f'/score-{lawn_num}-{run_id}.png'
-    log_p2_name = log_dir + f'/loss-{lawn_num}-{run_id}.png'
 
     print("current logging run number for " + env_name + " : ", run_num)
     print("logging at : " + log_f_name)
@@ -196,11 +179,6 @@ def main():
     rollouts.obs_num[0].copy_(obs_num)
     rollouts.to(device)
 
-    # episode_rewards = deque(maxlen=100)
-    # episode_total_losses = deque(maxlen=100)
-    # episode_entropies = deque(maxlen=100)
-    # episode_values = deque(maxlen=100)
-    # episode_actions = deque(maxlen=100)
 
     episode_rewards = []
     episode_perc_dones = []
@@ -235,7 +213,7 @@ def main():
                     if len(go_queue) > 0:
                         go_path = go_queue.pop(0)
                     elif run_num > 0 and run_num % args.go_explore_frequency == 0:
-                        go_queue = get_go_paths(logger.filename, args.n_pca, args.n_pcs)
+                        go_queue = get_go_paths(logger.filename, args.n_pcs)
                         go_path = go_queue.pop(0)
                     else:
                         # do runs as normal
@@ -277,8 +255,6 @@ def main():
                     rollouts.recurrent_hidden_states[step] = recurrent_hidden_states
                     rollouts.masks[step] = masks
                     rollouts.bad_masks[step] = bad_masks
-                    # rollouts.insert(obs, obs_num, recurrent_hidden_states, action,
-                    #                 action_log_prob, value, reward, masks, bad_masks)
 
             with torch.no_grad():
                 value, action, action_log_prob, recurrent_hidden_states = actor_critic.act(
@@ -316,15 +292,6 @@ def main():
                 log_running_reward = 0
                 log_running_episodes = 0
 
-            # for info in infos:
-            #     if 'episode' in info.keys():
-            #         episode_rewards.append(info['episode']['r'])
-
-            # If done then clean the history of observations.
-            # masks = torch.FloatTensor(
-            #     [[0.0] if done_ else [1.0] for done_ in done])
-            # bad_masks = torch.FloatTensor(
-            #     [[0.0] if done_ else [0.0] for done_ in done])
             if done is True:
                 masks = torch.FloatTensor([0.0])
                 bad_masks = torch.FloatTensor([1.0])  # bad_masks is 0 only if there is a forced end run
@@ -338,8 +305,6 @@ def main():
 
                 env.reset()
 
-                insert_step = rollouts.step + 1
-
                 obs = env.state
                 obs = obs.permute(2, 0, 1)  # oops, needed to change order
                 obs_num = env.state_numericals
@@ -349,9 +314,7 @@ def main():
             else:
                 masks = torch.FloatTensor([1.0])
                 bad_masks = torch.FloatTensor([1.0])  # bad_masks is 0 only if there is a forced end run
-            # bad_masks = torch.FloatTensor(
-            #     [[0.0] if 'bad_transition' in info.keys() else [1.0]
-            #      for info in infos])
+
 
 
             rollouts.insert(obs, obs_num, recurrent_hidden_states, action,
@@ -364,22 +327,6 @@ def main():
                 rollouts.obs_num[-1],
                 rollouts.recurrent_hidden_states[-1],
                 rollouts.masks[-1]).detach()
-
-        # if args.gail:
-        #     if j >= 10:
-        #         envs.venv.eval()
-        #
-        #     gail_epoch = args.gail_epoch
-        #     if j < 10:
-        #         gail_epoch = 100  # Warm up
-        #     for _ in range(gail_epoch):
-        #         discr.update(gail_train_loader, rollouts,
-        #                      utils.get_vec_normalize(envs)._obfilt)
-        #
-        #     for step in range(args.num_steps):
-        #         rollouts.rewards[step] = discr.predict_reward(
-        #             rollouts.obs[step], rollouts.actions[step], args.gamma,
-        #             rollouts.masks[step])
 
         rollouts.compute_returns(next_value, args.use_gae, args.gamma,
                                  args.gae_lambda, args.use_proper_time_limits)
@@ -411,7 +358,6 @@ def main():
 
             torch.save([
                 actor_critic,
-                #getattr(utils.get_vec_normalize(env), 'obs_rms', None)
                 None
             ], os.path.join(save_path, args.env_name + ".pt"))
 
@@ -430,21 +376,8 @@ def main():
                             action_loss))
             x = [i + 1 for i in range(len(episode_rewards))]
 
-            # if len(episode_rewards) > 100:
-            #     plot_learning_curve(j, x, episode_rewards,
-            #                         episode_perc_dones,
-            #                         episode_total_losses,
-            #                         episode_entropies,
-            #                         episode_values,
-            #                         episode_actions,
-            #                         log_p1_name,
-            #                         log_p2_name,
-            #                         lawn_num,
-            #                         run_id)
-
         if (args.eval_interval is not None and len(episode_rewards) > 1
                 and j % args.eval_interval == 0):
-            #obs_rms = utils.get_vec_normalize(env).obs_rms
             obs_rms = None
             evaluate(actor_critic, obs_rms, args.env_name, args.seed,
                      1, eval_log_dir, device)

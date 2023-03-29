@@ -74,6 +74,9 @@ class test_game:
         self.flower_penalty = 10
         self.rock_penalty = 20
 
+        self.fuel_reward_max = 200
+        self.frame_reward_max = 1000
+
         self.fuel_seed = fuel_seed
         self.device = device
         self.fuel_rng = torch.Generator(device=self.device)
@@ -248,15 +251,15 @@ class test_game:
             if self.perc_done == 100:
                 if self.reward_type == 0:
                     done_reward = (
-                            np.max(1000 - self.frames, 0) / 100 +
+                            np.max(1000 - self.frames, 0) / 100 / np.log(self.frames) +
                             40 / (self.fuel_counter + 1) / np.log(self.frames) +
-                            np.max(100 - self.fuel_rewards, 0)
+                            np.max(self.fuel_reward_max - self.fuel_rewards, 0)
                     )
                 else:
                     done_reward = (
                             np.max(1000 - self.frames, 0) / 100 +
                             4 / (self.fuel_counter + 1) * (1 + self.perc_done) / np.log(self.frames) +
-                            np.max(100 - self.fuel_rewards, 0)
+                            np.max(self.fuel_reward_max - self.fuel_rewards, 0)
                     )
 
                 if self.no_print is False:
@@ -297,9 +300,6 @@ class test_game:
             self.fuel_coord = (self.state[:, :, 7] == 1.0).nonzero()[fuel_choice_idx]
             self.state[self.fuel_coord[0], self.fuel_coord[1], 6] = 1.0
 
-            #fuel_reward = 500 * 1 / (1 + self.fuel) * np.exp(-3e-6 * self.frames - 2.5e-6 * self.frames ** 2)
-
-
 
             self.fuel_counter += 1
             self.amt_fuel_obtained += 60.0 - self.fuel
@@ -313,8 +313,8 @@ class test_game:
             else:
                 fuel_reward = 4 / self.fuel_counter * (1 + self.perc_done) / np.log(self.frames)
 
-            if self.fuel_rewards + fuel_reward > 100:
-                fuel_reward = max(100 - self.fuel_rewards, 0)
+            if self.fuel_rewards + fuel_reward > self.fuel_reward_max:
+                fuel_reward = max(self.fuel_reward_max - self.fuel_rewards, 0)
 
             self.fuel_rewards += fuel_reward
 
@@ -324,8 +324,6 @@ class test_game:
             self.frames_since_fuel = 0
 
             self.fuel = 60.0
-
-            #reward += 5 * np.exp(-3e-6 * self.frames - 2.5e-6 * self.frames ** 2)
 
             if self.no_print is False:
                 g_rew = (1 + self.perc_done) / np.log(self.frames)
@@ -342,7 +340,7 @@ class test_game:
                 self.state[:, :, 6] = 0.0
                 self.no_fuel = 0
 
-        #set fuel to 0
+        # set fuel to 0
         if self.fuel <= 0:
             self.fuel = 0.0
 

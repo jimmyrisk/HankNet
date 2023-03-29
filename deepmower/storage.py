@@ -128,6 +128,7 @@ class RolloutStorage(object):
             mini_batch_size,
             drop_last=True)
         for indices in sampler:
+            # changed to '1:' because of 8x13x32
             obs_batch = self.obs[:-1].view(-1, *self.obs.size()[1:])[indices]
             obs_num_batch = self.obs_num[:-1].view(-1, *self.obs_num.size()[1:])[indices]
             recurrent_hidden_states_batch = self.recurrent_hidden_states[:-1].view(
@@ -148,12 +149,13 @@ class RolloutStorage(object):
                 value_preds_batch, return_batch, masks_batch, old_action_log_probs_batch, adv_targ
 
     def recurrent_generator(self, advantages, num_mini_batch):
-        num_processes = self.rewards.size(1)
-        # assert num_processes >= num_mini_batch, (
-        #     "PPO requires the number of processes ({}) "
-        #     "to be greater than or equal to the number of "
-        #     "PPO mini batches ({}).".format(num_mini_batch))
-        num_envs_per_batch = num_processes // num_mini_batch
+        num_steps, num_processes = self.rewards.size()[0:2]
+        batch_size = num_processes * num_steps
+
+
+        mini_batch_size = batch_size // num_mini_batch
+        #num_envs_per_batch = num_processes // num_mini_batch
+        num_envs_per_batch = 1
         perm = torch.randperm(num_processes)
         for start_ind in range(0, num_envs_per_batch):
             obs_batch = []
@@ -166,19 +168,17 @@ class RolloutStorage(object):
             old_action_log_probs_batch = []
             adv_targ = []
 
-            for offset in range(num_envs_per_batch):
-                ind = perm[start_ind + offset]
-                obs_batch.append(self.obs[:-1, ind])
-                obs_num_batch.append(self.obs_num[:-1, ind])
-                recurrent_hidden_states_batch.append(
-                    self.recurrent_hidden_states[0:1, ind])
-                actions_batch.append(self.actions[:, ind])
-                value_preds_batch.append(self.value_preds[:-1, ind])
-                return_batch.append(self.returns[:-1, ind])
-                masks_batch.append(self.masks[:-1, ind])
-                old_action_log_probs_batch.append(
-                    self.action_log_probs[:, ind])
-                adv_targ.append(advantages[:, ind])
+            obs_batch.append(self.obs[:-1])
+            obs_num_batch.append(self.obs_num[:-1])
+            recurrent_hidden_states_batch.append(
+                self.recurrent_hidden_states[0:1])
+            actions_batch.append(self.actions[:])
+            value_preds_batch.append(self.value_preds[:-1])
+            return_batch.append(self.returns[:-1])
+            masks_batch.append(self.masks[:-1])
+            old_action_log_probs_batch.append(
+                self.action_log_probs[:])
+            adv_targ.append(advantages[:])
 
             T, N = self.num_steps, num_envs_per_batch
             # These are all tensors of size (T, N, -1)

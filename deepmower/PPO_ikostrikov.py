@@ -53,6 +53,7 @@ class PPO():
             if self.actor_critic.is_recurrent:
                 # data_generator = rollouts.recurrent_generator(
                 #     advantages, self.num_mini_batch)
+                # I double checked, forward_feed seems right even though its recurrent...
                 data_generator = rollouts.feed_forward_generator(
                     advantages, self.num_mini_batch)
             else:
@@ -75,7 +76,6 @@ class PPO():
                 surr2 = torch.clamp(ratio, 1.0 - self.clip_param,
                                     1.0 + self.clip_param) * adv_targ
                 action_loss = -torch.min(surr1, surr2).mean()
-
                 if self.use_clipped_value_loss:
                     value_pred_clipped = value_preds_batch + \
                         (values - value_preds_batch).clamp(-self.clip_param, self.clip_param)
@@ -107,7 +107,6 @@ class PPO():
                 action_loss_epoch += action_loss.item()
                 dist_entropy_epoch += dist_entropy.item()
 
-        #print(sum(p.numel() for p in self.actor_critic.parameters()))
 
         num_updates = self.ppo_epoch * self.num_mini_batch
 
