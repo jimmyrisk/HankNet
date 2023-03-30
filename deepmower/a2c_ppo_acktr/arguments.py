@@ -93,6 +93,11 @@ def get_args():
         default=False,
         help="sets flags for determinism when using CUDA (potentially slow!)")
     parser.add_argument(
+        '--use-deterministic',
+        action='store_false',
+        default=True,
+        help="turn off inclusion of deterministic runs")
+    parser.add_argument(
         '--num-processes',
         type=int,
         default=1,

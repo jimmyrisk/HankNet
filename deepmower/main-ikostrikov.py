@@ -38,20 +38,21 @@ input_dims = 17
 
 # SIL/hypers stuff: https://arxiv.org/pdf/2004.12919.pdf p31
 
-
-args = get_args()
-
+#
+# args = get_args()
+#
+#
 # args.debug_run = True
 # if args.debug_run is True:
-#     args.run_id = 211
-#     args.lawn_num = 22
+#     args.run_id = 21112
+#     args.lawn_num = 12
 #     args.go_explore_frequency = 16
 #     args.go_explore = True
 #     args.reward_type = 2
 #     args.hidden_size = 16
 #     args.hidden_num = 32
 #     args.hidden_output = 24
-
+#
 
 
 
@@ -173,6 +174,9 @@ def main():
     log_freq = 100
 
     env.reset()
+    deterministic_run = False
+    get_paths = False
+
 
     run_num = 1
 
@@ -198,6 +202,8 @@ def main():
     start = time.time()
     num_updates = int(
         args.num_env_steps) // args.num_steps
+
+
     for j in range(num_updates):
 
         current_ep_reward = 0
@@ -217,11 +223,20 @@ def main():
                     if len(go_queue) > 0:
                         go_path = go_queue.pop(0)
                     elif run_num > 0 and run_num % args.go_explore_frequency == 0:
-                        go_queue = get_go_paths(logger.filename, args.n_pcs)
-                        go_path = go_queue.pop(0)
+                        # do deterministic run before
+                        get_paths = True
+                        deterministic_run = args.use_deterministic
                     else:
                         # do runs as normal
                         pass
+
+                if get_paths is True and deterministic_run is False:
+                    # if the deterministic run is over with, then fill the queue
+                    go_queue = get_go_paths(logger.filename, args.n_pcs)
+                    go_path = go_queue.pop(0)
+
+                    # turn off flag
+                    get_paths = False
 
 
             while len(go_path) > 0:
@@ -265,7 +280,8 @@ def main():
                     rollouts.obs[step],
                     rollouts.obs_num[step],
                     rollouts.recurrent_hidden_states[step],
-                    rollouts.masks[step])
+                    rollouts.masks[step],
+                    deterministic = deterministic_run)
 
             # Obser reward and next obs
             obs, obs_num, reward, done, infos = env.step(action)
@@ -307,6 +323,7 @@ def main():
                 score = 0
 
                 env.reset()
+                deterministic_run = False
 
                 obs = env.state
                 obs = obs.permute(2, 0, 1)  # oops, needed to change order
