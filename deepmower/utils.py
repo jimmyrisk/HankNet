@@ -188,7 +188,10 @@ def plot_learning_curve(j, x, scores, perc_dones, total_loss, entropy, value, ac
 
 
 
-
+direction_dict = {0: 'w',
+                  1: 'e',
+                  2: 's',
+                  3: 'n'}
 
 
 

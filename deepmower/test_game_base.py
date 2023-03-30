@@ -66,6 +66,7 @@ class test_game:
     def __init__(self, lawn, reward_type = 1, device = 'cpu', no_print = False, fuel_seed = 2147483647):
         self.lawn = lawn
         self.init_state = load_lawn.csv_to_tensor(self.lawn)
+        self.total_grass = self.init_state[:, :, 0].sum()
         #self.state = self.init_state
         self.no_print = no_print
 
@@ -74,12 +75,15 @@ class test_game:
         self.flower_penalty = 10
         self.rock_penalty = 20
 
-        self.fuel_reward_max = 200
+        self.fuel_reward_max = 100
         self.frame_reward_max = 1000
 
         self.fuel_seed = fuel_seed
         self.device = device
         self.fuel_rng = torch.Generator(device=self.device)
+
+
+
 
 
 
@@ -128,13 +132,14 @@ class test_game:
         self.dir = 1  # east
         self.fuel = 60
         self.fuel_rng.manual_seed(self.fuel_seed)
-        self.total_grass = self.state[:, :, 0].sum()
         self.mowed = torch.tensor([0])
         self.perc_done = np.round(self.mowed.item() / self.total_grass.item()*100,2)
         self.east = self.dir == 1
         self.west = self.dir == 0
         self.north = self.dir == 3
         self.south = self.dir == 2
+
+
 
         # if we start with a fuel
         if self.state[:, :, 5].sum() == 1:
@@ -242,24 +247,24 @@ class test_game:
             self.state[new_coord[0], new_coord[1], 7] = 1.0
 
             if self.reward_type == 0:
-                reward += 10 / np.log(self.frames)
+                reward += 10
             else:
-                reward += (1 + self.perc_done) / np.log(self.frames)
+                reward += (1 + self.perc_done)
             self.grass_rewards += reward
             #reward += 1
 
             if self.perc_done == 100:
                 if self.reward_type == 0:
                     done_reward = (
-                            np.max(1000 - self.frames, 0) / 100 / np.log(self.frames) +
-                            40 / (self.fuel_counter + 1) / np.log(self.frames) +
-                            np.max(self.fuel_reward_max - self.fuel_rewards, 0)
+                            10 +
+                            10 / (self.frames - 5*self.total_grass) * 10 * self.total_grass +
+                            np.maximum(self.fuel_reward_max - self.fuel_rewards, 0)
                     )
                 else:
                     done_reward = (
-                            np.max(1000 - self.frames, 0) / 100 +
-                            4 / (self.fuel_counter + 1) * (1 + self.perc_done) / np.log(self.frames) +
-                            np.max(self.fuel_reward_max - self.fuel_rewards, 0)
+                            (1 + self.perc_done) +
+                            (1 + self.perc_done) / (self.frames - 5*self.total_grass) * 10 * self.total_grass +
+                            np.maximum(self.fuel_reward_max - self.fuel_rewards, 0)
                     )
 
                 if self.no_print is False:
@@ -309,9 +314,9 @@ class test_game:
             if self.reward_type == 3:
                 fuel_reward = 0
             elif self.reward_type == 0:
-                fuel_reward = 4 / self.fuel_counter / np.log(self.frames) * 20
+                fuel_reward = 4 / self.fuel_counter  * 20
             else:
-                fuel_reward = 4 / self.fuel_counter * (1 + self.perc_done) / np.log(self.frames)
+                fuel_reward = 4 / self.fuel_counter * (1 + self.perc_done)
 
             if self.fuel_rewards + fuel_reward > self.fuel_reward_max:
                 fuel_reward = max(self.fuel_reward_max - self.fuel_rewards, 0)
@@ -326,7 +331,7 @@ class test_game:
             self.fuel = 60.0
 
             if self.no_print is False:
-                g_rew = (1 + self.perc_done) / np.log(self.frames)
+                g_rew = (1 + self.perc_done)
                 print(f"fuel pickup: {self.fuel_counter}  --  reward: {fuel_reward:.2f}  --  %: {self.perc_done}  --  fr: {self.frames}  --  g-rew: {g_rew:.2f}")
 
         elif self.state[new_coord[0], new_coord[1], 6] == 1.0:
@@ -341,7 +346,7 @@ class test_game:
                 self.no_fuel = 0
 
         # set fuel to 0
-        if self.fuel <= 0:
+        if self.fuel <= 0 and self.perc_done < 100:
             self.fuel = 0.0
 
             if self.reward_type == 1:
