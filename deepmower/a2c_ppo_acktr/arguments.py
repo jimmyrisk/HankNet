@@ -192,7 +192,7 @@ def get_args():
     parser.add_argument(
         '--go-explore-frequency',
         type=int,
-        default=32,
+        default=16,
         help='number of runs completed before a go-explore insertion is performed')
     parser.add_argument(
         '--n-pca',
