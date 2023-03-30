@@ -211,8 +211,8 @@ def get_args():
         help='number of principle components to use')
     parser.add_argument(
         '--use-linear-lr-decay',
-        action='store_false',
-        default=True,
+        action='store_true',
+        default=False,
         help='use a linear schedule on the learning rate')
 
 
