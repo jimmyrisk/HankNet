@@ -257,13 +257,13 @@ class test_game:
                 if self.reward_type == 0:
                     done_reward = (
                             10 +
-                            10 / (self.frames - 5*self.total_grass) * 10 * self.total_grass +
+                            10 / (self.frames - 5.5*self.total_grass.item()) * 10 * self.total_grass.item() +
                             np.maximum(self.fuel_reward_max - self.fuel_rewards, 0)
                     )
                 else:
                     done_reward = (
                             (1 + self.perc_done) +
-                            (1 + self.perc_done) / (self.frames - 5*self.total_grass) * 10 * self.total_grass +
+                            (1 + self.perc_done) / (self.frames - 5.5*self.total_grass.item()) * 10 * self.total_grass.item() +
                             np.maximum(self.fuel_reward_max - self.fuel_rewards, 0)
                     )
 
