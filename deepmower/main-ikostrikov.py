@@ -74,6 +74,10 @@ env_name = f"lawn{lawn_num}"
 
 print(f"Beginning run on Lawn {lawn_num}.  Run ID: {run_id}.  Random Seed: {random_seed}")
 
+# TODO
+# TODO
+# TODO
+# - NOTE: WANT TO INCREASE HIDDEN_SIZE FOR ACTUAL LAWNMOWER.  TEST ON LAWN 5
 
 
 

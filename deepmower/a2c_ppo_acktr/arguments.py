@@ -48,7 +48,7 @@ def get_args():
     parser.add_argument(
         '--hidden-size',
         type=int,
-        default=16,
+        default=32,
         help='number of hidden units that are grid related')
     parser.add_argument(
         '--hidden-num',
@@ -58,7 +58,7 @@ def get_args():
     parser.add_argument(
         '--hidden-output',
         type=int,
-        default=0,
+        default=16,
         help='number of hidden units in combined nodes (0 => hidden-size + hidden-num)')
     parser.add_argument(
         '--use-gae',
