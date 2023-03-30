@@ -38,9 +38,9 @@ input_dims = 17
 
 # SIL/hypers stuff: https://arxiv.org/pdf/2004.12919.pdf p31
 
-#
-# args = get_args()
-#
+
+args = get_args()
+
 #
 # args.debug_run = True
 # if args.debug_run is True:
