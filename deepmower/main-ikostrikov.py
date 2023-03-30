@@ -303,7 +303,6 @@ def main():
                 logger.write(score, run_num)
                 episode_rewards.append(score)
                 episode_perc_dones.append(env.perc_done)
-                logger.write_rewards(run_num, score, env.perc_done)
 
                 score = 0
 
