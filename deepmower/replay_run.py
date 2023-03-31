@@ -75,10 +75,10 @@ def main():
         lawn_num = 22
         reward_type = 2
         go_explore = "True"
-        run_id = 10001
-        sort_by = 'Frames'
+        run_id = 10002
+        sort_by = 'Perc_done'
         top_n = 10
-        filter = 100
+        filter = 90
 
 
 
@@ -108,7 +108,13 @@ def main():
         #%%
 
         run_df = pd.read_csv(log_f_name)
-        display_df = run_df[run_df['Perc_done'] >= filter].sort_values(sort_by, ascending=True).iloc[:top_n]
+
+        if sort_by == "Frames":
+            ascending = True
+        else:
+            ascending = False
+
+        display_df = run_df[run_df['Perc_done'] >= filter].sort_values(sort_by, ascending=ascending).iloc[:top_n]
         print(display_df[['Perc_done', 'Frames', 'Score']])
 
 

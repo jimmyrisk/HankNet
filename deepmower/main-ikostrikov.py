@@ -41,10 +41,10 @@ input_dims = 17
 
 args = get_args()
 
-#
+
 # args.debug_run = True
 # if args.debug_run is True:
-#     args.run_id = 21112
+#     args.run_id = 211119
 #     args.lawn_num = 12
 #     args.go_explore_frequency = 16
 #     args.go_explore = True
@@ -52,7 +52,8 @@ args = get_args()
 #     args.hidden_size = 16
 #     args.hidden_num = 32
 #     args.hidden_output = 24
-#
+#     args.use_deterministic = False
+
 
 
 
@@ -174,8 +175,11 @@ def main():
     log_freq = 100
 
     env.reset()
+    score = 0
+
     deterministic_run = False
     get_paths = False
+
 
 
     run_num = 1
@@ -207,7 +211,7 @@ def main():
     for j in range(num_updates):
 
         current_ep_reward = 0
-        score = 0
+
 
         if args.use_linear_lr_decay:
             # decrease learning rate linearly
@@ -229,6 +233,9 @@ def main():
                     else:
                         # do runs as normal
                         pass
+
+                if args.go_explore is False and run_num % args.go_explore_frequency == 0:
+                    deterministic_run = args.use_deterministic
 
                 if get_paths is True and deterministic_run is False:
                     # if the deterministic run is over with, then fill the queue
@@ -316,7 +323,7 @@ def main():
                 masks = torch.FloatTensor([0.0])
                 bad_masks = torch.FloatTensor([1.0])  # bad_masks is 0 only if there is a forced end run
 
-                logger.write(score, run_num)
+                logger.write(score, deterministic_run, run_num)
                 episode_rewards.append(score)
                 episode_perc_dones.append(env.perc_done)
 

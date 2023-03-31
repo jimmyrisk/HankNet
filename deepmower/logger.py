@@ -6,7 +6,6 @@ class logger:
         self.rewards = []
         self.copied = []
         self.done = 0
-        self.score = 0
         self.fuel = 0
         self.path = path
         self.filename = path + str(run_id) + ".csv"
@@ -16,7 +15,7 @@ class logger:
 
         with open(self.filename, mode='a', newline='') as csv_output:
             wr = csv.writer(csv_output)
-            row = ["Run", "Path", "Rewards", "Score", "Fuel_Score", "Grass_Score", "Num_Fuel_Obtained",
+            row = ["Run", "Deterministic", "Path", "Rewards", "Score", "Fuel_Score", "Grass_Score", "Num_Fuel_Obtained",
                    "Amt_Fuel_Obtained", "End_Fuel", "Frames", "End_x", "End_y", "Perc_done", "Frames_Since_Fuel",
                    "Momentum Lost", "Fuel_Manhattan", "Go_Explore_Copied"]
             wr.writerow(row)
@@ -28,21 +27,16 @@ class logger:
             wr.writerow(row)
             csv_output.close()
 
-        with open(self.filename_rewards, mode='a', newline='') as csv_output:
-            wr = csv.writer(csv_output)
-            row = ["iter", 'rewards', 'perc_done']
-            wr.writerow(row)
-            csv_output.close()
 
     def log(self, action, reward, copied):
         self.actions.append(action)
         self.rewards.append(reward)
         self.copied.append(copied)
 
-    def write(self, score, run_num = 0):
+    def write(self, score, deterministic, run_num = 0):
         with open(self.filename, mode='a', newline='') as csv_output:
             wr = csv.writer(csv_output)
-            row = [run_num,
+            row = [run_num, deterministic,
                 self.actions, self.rewards, score,
                    self.env.fuel_rewards,
                    self.env.grass_rewards,
@@ -63,7 +57,6 @@ class logger:
         self.actions = []
         self.rewards = []
         self.copied = []
-        self.score = 0
         self.fuel = 0
 
 

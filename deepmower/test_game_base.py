@@ -314,7 +314,7 @@ class test_game:
             if self.reward_type == 3:
                 fuel_reward = 0
             elif self.reward_type == 0:
-                fuel_reward = 4 / self.fuel_counter  * 20
+                fuel_reward = 4 / self.fuel_counter * 20
             else:
                 fuel_reward = 4 / self.fuel_counter * (1 + self.perc_done)
 
