@@ -79,7 +79,6 @@ def plot_reward(
 
     csv_path = f"../PPO_logs/lawn{lawn_num}/go_explore_{go_explore}/reward_function{reward_function}/{run_id}.csv"
 
-    reward_data = pd.read_csv(csv_path)
 
 
     #%%

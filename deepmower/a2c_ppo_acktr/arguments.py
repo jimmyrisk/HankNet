@@ -155,7 +155,7 @@ def get_args():
     parser.add_argument(
         '--reward-type',
         type=int,
-        default=1,
+        default=2,
         help='type of reward function used')
     parser.add_argument(
         '--num-env-steps',
