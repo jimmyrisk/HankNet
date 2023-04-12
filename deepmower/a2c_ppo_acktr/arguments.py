@@ -195,6 +195,11 @@ def get_args():
         default=False,
         help='use go-explore')
     parser.add_argument(
+        '--pca-type',
+        type=int,
+        default=0,
+        help='type of pca-explore (0, 1, 2, 3, 4)')
+    parser.add_argument(
         '--go-explore-frequency',
         type=int,
         default=16,

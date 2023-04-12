@@ -44,17 +44,14 @@ args = get_args()
 
 # args.debug_run = True
 # if args.debug_run is True:
-#     args.run_id = 211119
+#     args.run_id = 211127
 #     args.lawn_num = 12
 #     args.go_explore_frequency = 16
 #     args.go_explore = True
 #     args.reward_type = 2
-#     args.hidden_size = 16
-#     args.hidden_num = 32
-#     args.hidden_output = 24
-#     args.use_deterministic = False
-
-
+#     args.pca_type = 4
+#     args.n_pcs = 13
+#
 
 
 
@@ -239,7 +236,7 @@ def main():
 
                 if get_paths is True and deterministic_run is False:
                     # if the deterministic run is over with, then fill the queue
-                    go_queue = get_go_paths(logger.filename, args.n_pcs)
+                    go_queue = get_go_paths(logger.filename, args.n_pcs, args.pca_type)
                     go_path = go_queue.pop(0)
 
                     # turn off flag

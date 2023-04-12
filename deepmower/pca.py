@@ -6,6 +6,9 @@ import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
+from sklearn.cluster import KMeans
+
+
 #%%
 
 def drop_constant_column(dataframe):
@@ -16,7 +19,7 @@ def drop_constant_column(dataframe):
 
 #%%
 
-def get_go_paths(log_f_name = None, n_pcs = 6):
+def get_go_paths(log_f_name = None, n_pcs = 6, pca_type = 0, n_sample = 10):
     if log_f_name == None:
         go_explore = False
         reward_type = 1
@@ -46,7 +49,8 @@ def get_go_paths(log_f_name = None, n_pcs = 6):
     scaled_df=run_df.copy()
     scaled_df=pd.DataFrame(scaler.fit_transform(scaled_df), columns=scaled_df.columns)
 
-
+    # in case n_pcs is too big
+    n_pcs = min(n_pcs, scaled_df.shape[1])
 
     #define PCA model to use
     pca = PCA(n_components=n_pcs)
@@ -58,13 +62,63 @@ def get_go_paths(log_f_name = None, n_pcs = 6):
 
     pcs = scaled_df.__matmul__(pca.components_.T)
 
+    if pca_type == 0:
+        # original
+        idxs = []
 
-    idxs = []
+        for i in range(n_pcs):
+            idxs.append(pcs[i].argmax())
+            idxs.append(pcs[i].argmin())
 
-    for i in range(n_pcs):
-        idxs.append(pcs[i].argmax())
-        idxs.append(pcs[i].argmin())
+    elif pca_type == 1:
+        # weighing based on all pcs
+        pcs_old = pcs
+        weights = np.array(np.abs(pcs_old)).__matmul__(np.array(np.sqrt(pca.explained_variance_)))
 
+        pcs['weights'] = weights
+        idxs = pcs.sample(n=n_sample, replace=False, weights='weights').index
+
+    elif pca_type == 2:
+        # sample pc's based on var explained, then sample two extremes
+        weights = pca.explained_variance_ratio_
+        pc_idxs = np.random.choice(range(n_pcs), size=int(n_sample / 2), replace=False, p=weights)
+        idxs = []
+        for pc_idx in pc_idxs:
+            pc = pcs[pc_idx]
+            wt1 = np.exp(pc)
+            wt2 = np.exp(-pc)
+            idx1 = pc.sample(n=1, weights=wt1).index[0]
+            idx2 = pc.sample(n=1, weights=wt2).index[0]
+            idxs.append(idx1)
+            idxs.append(idx2)
+
+    elif pca_type == 3:
+        X = pcs
+        X.columns = X.columns.astype(str)
+        kmeans = KMeans(n_clusters=n_sample).fit(pcs)
+
+        # %%
+
+        idxs = []
+        for i in range(n_sample):
+            d = kmeans.transform(X)[:, i]
+            idxs.append(d.argmin())
+
+    elif pca_type == 4:
+        X = pcs
+        X.columns = X.columns.astype(str)
+        kmeans = KMeans(n_clusters=int(n_sample / 2)).fit(pcs)
+
+
+        idxs = []
+        kmx = kmeans.transform(X)
+        for i in range(int(n_sample / 2)):
+            d_all = kmx.sum(axis=1)
+            d_nearest = kmx[:, i]
+            d_all_but_nearest = d_all - d_nearest
+            idxs.append(d_all_but_nearest.argmin())
+
+    # get paths based on indices
     paths = paths.iloc[idxs].reset_index(drop=True)
 
     paths_list = paths.values.tolist()
