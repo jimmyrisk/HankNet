@@ -44,14 +44,14 @@ args = get_args()
 
 # args.debug_run = True
 # if args.debug_run is True:
-#     args.run_id = 211127
-#     args.lawn_num = 12
+#     args.run_id = 211129
+#     args.lawn_num = 33
 #     args.go_explore_frequency = 16
 #     args.go_explore = True
 #     args.reward_type = 2
-#     args.pca_type = 4
+#     args.pca_type = 2
 #     args.n_pcs = 13
-#
+
 
 
 

@@ -80,7 +80,8 @@ def get_go_paths(log_f_name = None, n_pcs = 6, pca_type = 0, n_sample = 10):
 
     elif pca_type == 2:
         # sample pc's based on var explained, then sample two extremes
-        weights = pca.explained_variance_ratio_
+        weights = pca.explained_variance_
+        weights = weights / np.sum(weights)
         pc_idxs = np.random.choice(range(n_pcs), size=int(n_sample / 2), replace=False, p=weights)
         idxs = []
         for pc_idx in pc_idxs:
