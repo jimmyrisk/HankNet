@@ -75,7 +75,7 @@ class test_game:
         self.flower_penalty = 10
         self.rock_penalty = 20
 
-        self.fuel_reward_max = 200
+        self.fuel_reward_max = 500
         self.frame_reward_max = 1000
 
         self.fuel_seed = fuel_seed
