@@ -19,7 +19,7 @@ def drop_constant_column(dataframe):
 
 #%%
 
-def get_go_paths(log_f_name = None, n_pcs = 6, pca_type = 0, n_sample = 10):
+def get_go_paths(log_f_name = None, n_pcs = 6, pca_type = 0, n_sample = 12):
     if log_f_name == None:
         go_explore = False
         reward_type = 1
